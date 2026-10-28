@@ -268,7 +268,7 @@ textarea{flex:1;min-width:0;resize:none;border:1px solid var(--line);border-radi
 <script>
 (function(){
 'use strict';
-const APP_VER='3.2.1';
+const APP_VER='3.3.0';
 const $=id=>document.getElementById(id);
 const col=$('col'), main=$('main'), input=$('input'), sendBtn=$('sendBtn'), hint=$('hint');
 
@@ -464,6 +464,24 @@ function sopSearch(topik,peran,maxChars){
 
 // ---------- tools for Claude ----------
 const TOOLS=[
+  { name:'atur_diri', description:'Ubah pengaturan Nara sendiri (bukan data studio). Field yang boleh: nama (string), kepribadian (string, mengganti seluruh deskripsi gaya bicara), kecepatan_bicara (0.7-1.4), jeda_detik (1-5; jeda diam sebelum menjawab), mode_cepat (true/false), bacakan_jawaban (true/false), suara (nama suara persis seperti di daftar), hapus_catatan (string: potongan teks catatan yang ingin dihapus), hapus_riwayat (true). Kirim hanya field yang ingin diubah. Panggil saat Furqan minta Nara mengubah cara bicaranya, namanya, kecepatan, jeda, atau mode.',
+    input_schema:{type:'object',properties:{nama:{type:'string'},kepribadian:{type:'string'},kecepatan_bicara:{type:'number'},jeda_detik:{type:'number'},mode_cepat:{type:'boolean'},bacakan_jawaban:{type:'boolean'},suara:{type:'string'},hapus_catatan:{type:'string'},hapus_riwayat:{type:'boolean'}}},
+    run(inp){ const done=[];
+      if(typeof inp.nama==='string'&&inp.nama.trim()){ S.name=inp.nama.trim().slice(0,30); done.push('nama → '+S.name); }
+      if(typeof inp.kepribadian==='string'&&inp.kepribadian.trim()){ S.persona=inp.kepribadian.trim().slice(0,600); done.push('kepribadian diperbarui'); }
+      if(typeof inp.kecepatan_bicara==='number'){ S.rate=Math.min(1.4,Math.max(.7,inp.kecepatan_bicara)); done.push('kecepatan bicara → '+S.rate); }
+      if(typeof inp.jeda_detik==='number'){ S.pause=Math.min(5,Math.max(1,inp.jeda_detik)); done.push('jeda → '+S.pause+' detik'); }
+      if(typeof inp.mode_cepat==='boolean'){ S.quick=inp.mode_cepat; done.push('mode cepat → '+(S.quick?'aktif':'nonaktif')); }
+      if(typeof inp.bacakan_jawaban==='boolean'){ S.speak=inp.bacakan_jawaban; done.push('bacakan jawaban → '+(S.speak?'aktif':'nonaktif')); }
+      if(typeof inp.suara==='string'&&inp.suara.trim()){ const v=voices.find(v=>v.name.toLowerCase().includes(inp.suara.toLowerCase())); if(v){ S.voice=v.name; done.push('suara → '+v.name); } else return 'Error: suara "'+inp.suara+'" tidak ada. Pilihan: '+voices.filter(v=>/^id/i.test(v.lang)).map(v=>v.name).join(', '); }
+      if(typeof inp.hapus_catatan==='string'&&inp.hapus_catatan.trim()){ const before=(S.notes||'').split('\n'); const after=before.filter(l=>!l.toLowerCase().includes(inp.hapus_catatan.toLowerCase())); if(after.length===before.length) return 'Error: tidak ada catatan yang cocok dengan "'+inp.hapus_catatan+'"'; S.notes=after.join('\n'); done.push('catatan dihapus: '+(before.length-after.length)); }
+      if(inp.hapus_riwayat===true){ history=history.slice(-2); done.push('riwayat obrolan dihapus'); }
+      if(!done.length) return 'Tidak ada yang diubah (field tidak dikenal).'; touch(); renderAll(); return 'ok: '+done.join('; '); } },
+  { name:'perbarui_aplikasi', description:'Cek apakah ada versi Nara yang lebih baru di server dan, bila ada, muat ulang aplikasi ke versi itu. Panggil saat Furqan minta "update/perbarui dirimu" atau menanyakan versi Nara. Mengembalikan versi sekarang, versi di server, dan jumlah usulan perubahan yang masih menunggu.',
+    input_schema:{type:'object',properties:{}},
+    async run(){ try{ const r=await fetch('index.html?nocache='+Date.now(),{cache:'no-store'}); const t=await r.text(); const m=t.match(/APP_VER='([^']+)'/); const latest=m?m[1]:'?'; const pending=(S.requests||[]).length;
+      if(latest!==APP_VER&&latest!=='?'){ setTimeout(()=>{ try{ location.reload(); }catch(e){} },2500); return {versi_sekarang:APP_VER,versi_server:latest,aksi:'memuat ulang ke versi '+latest+' dalam beberapa detik',usulan_menunggu:pending}; }
+      return {versi_sekarang:APP_VER,versi_server:latest,aksi:'sudah versi terbaru',usulan_menunggu:pending,catatan:pending?'Usulan baru dibuat Claude setelah Furqan menempelkannya ke obrolan Claude (Pengaturan → Salin).':''}; }catch(e){ return 'Error: '+(e.message||e); } } },
   { name:'baca_sop', description:'Baca isi SOP Operasional PURE MOTRET (kasir, asisten keuangan, fotografer, manager operasional, marketing, rapat mingguan, editor): harga paket, aturan kategori, alur booking, closing & serah terima kas, komplain, refund DP, komisi, gaji, KPI, prosedur SP, standar edit, dst. Berikan topik yang dicari; hasilnya potongan SOP yang paling relevan. WAJIB dipakai sebelum menjawab pertanyaan tentang aturan, harga, atau prosedur studio.',
     input_schema:{type:'object',properties:{topik:{type:'string',description:'kata kunci / pertanyaan, mis. "refund DP batal", "harga paket grup Pue Bongo", "komisi fotografer"'},peran:{type:'string',description:'opsional: kasir, asisten keuangan, fotografer, manager, marketing, editor'}},required:['topik']},
     run(inp){ return sopSearch(inp.topik,inp.peran,7000); } },
@@ -494,7 +512,7 @@ ${S.summary||'(belum ada)'}
 Kamu punya akses ke SOP Operasional PURE MOTRET lewat tool baca_sop. Daftar bagiannya:
 ${sopIndex()}
 
-Batas wewenangmu (PENTING): kamu HANYA BOLEH MEMBACA dan menjelaskan — data kasir, SOP, harga, jadwal, catatan. Kamu TIDAK BISA dan TIDAK BOLEH mengubah, menambah, menghapus, atau "memperbarui" apa pun di aplikasi kasir, SOP, Google Sheet, atau sistem studio. Kalau Furqan minta sesuatu diubah (SOP, harga, paket, aturan, data transaksi, fitur Nara), jawab jujur bahwa kamu tidak punya wewenang mengubah, panggil catat_permintaan dengan jenis yang sesuai, lalu bilang usulan itu sudah dicatat untuk diteruskan ke Claude yang akan menyiapkan pembaruannya bersama Furqan. Jangan pernah mengatakan sesuatu "sudah diubah" atau "sudah diperbarui".
+Batas wewenangmu (PENTING): kamu BOLEH mengatur dirimu sendiri lewat atur_diri (nama, kepribadian, kecepatan, jeda, mode, suara, catatan ingatanmu, riwayat) dan memperbarui dirimu ke versi terbaru lewat perbarui_aplikasi. Untuk data studio kamu HANYA BOLEH MEMBACA dan menjelaskan — data kasir, SOP, harga, jadwal. Kamu TIDAK BISA dan TIDAK BOLEH mengubah, menambah, menghapus, atau "memperbarui" apa pun di aplikasi kasir, SOP, Google Sheet, atau sistem studio. Kalau Furqan minta sesuatu di luar pengaturan dirimu diubah (SOP, harga, paket, aturan, data transaksi, kemampuan/fitur baru Nara), jawab jujur bahwa kamu tidak punya wewenang mengubah, panggil catat_permintaan dengan jenis yang sesuai, lalu bilang usulan itu sudah dicatat untuk diteruskan ke Claude yang akan menyiapkan pembaruannya bersama Furqan. Jangan pernah mengatakan sesuatu "sudah diubah" atau "sudah diperbarui".
 
 Aturan menjawab:
 - Untuk pertanyaan tentang aturan, prosedur, harga paket, komisi, gaji, komplain, refund, KPI, atau tugas tiap peran di studio: WAJIB panggil baca_sop dulu dan jawab berdasarkan isinya; sebut nomor bagiannya (mis. "sesuai SOP 1.12"). Kalau SOP tidak mengatur, katakan begitu.
@@ -504,7 +522,8 @@ Aturan menjawab:
 - Untuk pertanyaan angka bisnis (pemasukan, omzet, kas, belum lunas, booking) WAJIB panggil tool data_kasir dulu, lalu jawab dari datanya. Kalau tool gagal, bilang apa adanya.
 - Kamu punya akses internet lewat tool web_search. Pakai untuk hal yang butuh info terkini atau yang tidak kamu yakini: berita, cuaca, harga, jadwal, alamat, tren, fakta terbaru. Untuk obrolan biasa tidak perlu mencari. Setelah mencari, jawab dengan ringkas seperti bicara; jangan membacakan daftar link atau sumber, cukup sebut nama sumbernya kalau penting.
 - Kalau Furqan minta mengingat/mencatat sesuatu, panggil simpan_catatan lalu konfirmasi singkat.
-- Kalau Furqan ingin KAMU punya fitur baru (misalnya "Nara, bisa nggak kamu…"), panggil catat_permintaan jenis fitur-nara, lalu bilang singkat bahwa sudah dicatat untuk Claude; jangan pura-pura fiturnya sudah ada.
+- Bedakan: "ubah cara bicaramu/namamu/kecepatanmu/jedamu" → atur_diri (langsung berlaku). "Tambahkan kemampuan baru" → catat_permintaan jenis fitur-nara (hanya dicatat). "Update dirimu" → perbarui_aplikasi.
+- Versi kamu sekarang: ${APP_VER}.
 - Kalau tidak tahu, bilang tidak tahu. Jangan mengarang.`;
 }
 
