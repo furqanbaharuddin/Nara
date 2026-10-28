@@ -1,0 +1,821 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1">
+<title>Nara</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Nara">
+<meta name="theme-color" content="#0f6b62">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Manrope:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  --bg:#edf0f4; --panel:#ffffff; --fg:#1a2230; --muted:#5d6878; --line:#d5dbe4;
+  --accent:#0f6b62; --accent-ink:#ffffff; --me:#dfeee9; --bot:#ffffff; --danger:#b4453c;
+  --display:"Fraunces", Georgia, serif; --body:"Manrope", system-ui, -apple-system, sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){ :root{
+  --bg:#10151c; --panel:#171e27; --fg:#e7ebf0; --muted:#95a1b2; --line:#2a3340;
+  --accent:#3fb3a5; --accent-ink:#0b1512; --me:#1f3a36; --bot:#1c2530; --danger:#e07a70; color-scheme:dark } }
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 var(--body);-webkit-text-size-adjust:100%;overflow:hidden;
+  padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)}
+button{font:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
+button:focus-visible,textarea:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+[hidden]{display:none!important}
+.iconbtn{background:none;border:1px solid var(--line);color:var(--fg);border-radius:12px;width:42px;height:42px;display:grid;place-items:center;flex:none}
+.iconbtn[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+
+/* ---- Layar utama: wajah ---- */
+.home{height:100%;width:100%;max-width:100vw;display:grid;grid-template-rows:auto 1fr auto auto;padding:10px 16px 18px;gap:8px;overflow:hidden}
+.home>*{min-width:0;max-width:100%}
+.top{display:flex;align-items:center;gap:10px}
+.top .who{flex:1;min-width:0}
+.top h1{margin:0;font:600 20px/1.2 var(--display);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.top p{margin:0;font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--accent);display:inline-block;flex:none}
+.dot.off{background:var(--muted)}
+.facewrap{display:grid;place-items:center;min-height:0}
+.facewrap{min-width:0;width:100%}
+.ring{position:relative;display:grid;place-items:center;width:100%;max-width:min(720px,100%);height:min(46vh,420px);min-width:0;overflow:hidden}
+.ring::before{content:"";position:absolute;inset:-5%;border-radius:50%;border:3px solid var(--accent);opacity:0;transition:opacity .3s;pointer-events:none}
+.ring.listening::before{opacity:.8;animation:ring 1.6s ease-out infinite}
+@keyframes ring{0%{transform:scale(.94);opacity:.8}100%{transform:scale(1.1);opacity:0}}
+@media (prefers-reduced-motion:reduce){.ring.listening::before{animation:none;opacity:.5}}
+.face-float{animation:float 4s ease-in-out infinite}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-1.5px)}}
+@media (prefers-reduced-motion:reduce){.face-float{animation:none}}
+.wave{width:100%;height:100%;max-width:100%;display:block;cursor:pointer}
+.state{text-align:center;font:600 13px var(--body);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);min-height:18px}
+.state.live{color:var(--accent)}
+.transcript{text-align:center;display:flex;flex-direction:column;gap:6px;max-width:560px;margin:0 auto;width:100%;min-height:0;min-width:0;overflow-wrap:anywhere}
+.transcript .you{color:var(--muted);font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.transcript .her{font:500 17px/1.45 var(--display);text-wrap:balance;max-height:22vh;overflow-y:auto;overflow-wrap:anywhere}
+.ctrls{display:flex;align-items:center;justify-content:center;gap:16px;padding-top:6px}
+.talk{width:84px;height:84px;border-radius:50%;border:none;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;box-shadow:0 8px 24px color-mix(in srgb,var(--accent) 35%,transparent)}
+.talk.on{background:var(--danger);color:#fff}
+.hint{text-align:center;font-size:12px;color:var(--muted);min-height:16px}
+
+/* ---- Panel obrolan (riwayat + ketik) ---- */
+.chat{position:fixed;inset:0;z-index:30;background:var(--bg);display:flex;flex-direction:column;
+  padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px) 0;transform:translateY(100%);transition:transform .28s ease}
+.chat.open{transform:translateY(0)}
+@media (prefers-reduced-motion:reduce){.chat{transition:none}}
+.chat header{background:var(--panel);border-bottom:1px solid var(--line);padding:10px 16px;display:flex;align-items:center;gap:12px;flex:none}
+.chat header h2{margin:0;flex:1;font:600 18px var(--display)}
+main{flex:1;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:16px}
+.col{max-width:720px;margin:0 auto;display:flex;flex-direction:column;gap:10px}
+.msg{max-width:85%;padding:10px 14px;border-radius:18px;white-space:pre-wrap;word-wrap:break-word;min-width:0}
+.msg.me{align-self:flex-end;background:var(--me);border-bottom-right-radius:6px}
+.msg.bot{align-self:flex-start;background:var(--bot);border:1px solid var(--line);border-bottom-left-radius:6px}
+.msg.sys{align-self:center;background:none;color:var(--muted);font-size:12.5px;text-align:center;max-width:90%}
+.msg.thinking{color:var(--muted);font-style:italic}
+.msg .time{display:block;font-size:11px;color:var(--muted);margin-top:4px;font-variant-numeric:tabular-nums}
+.empty{text-align:center;color:var(--muted);padding:30px 12px;font-size:14px}
+.empty b{display:block;font:600 20px var(--display);color:var(--fg);margin-bottom:8px;text-wrap:balance}
+.chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:16px}
+.chips button{background:var(--panel);border:1px solid var(--line);color:var(--fg);border-radius:999px;padding:7px 12px;font-size:13px}
+footer{background:var(--panel);border-top:1px solid var(--line);flex:none;padding:10px 16px}
+.composer{max-width:720px;margin:0 auto;display:flex;gap:8px;align-items:flex-end}
+textarea{flex:1;min-width:0;resize:none;border:1px solid var(--line);border-radius:14px;padding:10px 12px;background:var(--bg);color:var(--fg);font:inherit;font-size:16px;max-height:140px;line-height:1.4}
+.send{background:var(--accent);color:var(--accent-ink);border:none;border-radius:12px;width:44px;height:44px;display:grid;place-items:center;flex:none}
+.send:disabled{opacity:.5;cursor:default}
+
+/* ---- Pengaturan ---- */
+.sheet{position:fixed;inset:0;background:rgba(10,16,24,.45);z-index:40;display:flex;align-items:flex-end;justify-content:center}
+.sheet .card{background:var(--panel);width:100%;max-width:560px;max-height:90%;overflow-y:auto;border-radius:20px 20px 0 0;padding:16px 18px calc(16px + env(safe-area-inset-bottom,0px))}
+.card h2{margin:0 0 4px;font:600 20px var(--display)}
+.card h3{margin:18px 0 8px;font:600 12px var(--body);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);border-top:1px solid var(--line);padding-top:14px}
+.card p.sub{margin:0 0 10px;color:var(--muted);font-size:13px}
+.field{display:flex;flex-direction:column;gap:5px;margin-bottom:12px}
+.field label{font-size:12px;font-weight:600;color:var(--muted)}
+.field input,.field textarea,.field select{border:1px solid var(--line);border-radius:10px;padding:9px 11px;background:var(--bg);color:var(--fg);font:inherit;font-size:16px;width:100%}
+.field textarea{min-height:80px}
+.field small{color:var(--muted);font-size:12px}
+.row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0}
+.row span{font-size:14px}
+.row small{display:block;color:var(--muted);font-size:12px}
+.toggle{width:46px;height:26px;border-radius:999px;border:none;background:var(--line);position:relative;flex:none}
+.toggle::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:var(--panel);transition:left .15s}
+.toggle[aria-checked="true"]{background:var(--accent)}
+.toggle[aria-checked="true"]::after{left:23px}
+.actions{display:flex;gap:8px;justify-content:space-between;margin-top:16px;flex-wrap:wrap}
+.btn{border:1px solid var(--line);background:var(--panel);color:var(--fg);border-radius:10px;padding:9px 14px;font-weight:600}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.danger{color:var(--danger)}
+.status-line{font-size:12.5px;color:var(--muted);margin-top:4px}
+.ok{color:var(--accent)} .err{color:var(--danger)}
+/* ---- Layar kunci ---- */
+.lock{position:fixed;inset:0;z-index:60;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:24px 20px calc(24px + env(safe-area-inset-bottom,0px))}
+.lock h2{margin:0;font:600 24px var(--display)}
+.lock p{margin:0;color:var(--muted);font-size:14px;text-align:center;max-width:320px;text-wrap:balance}
+.lock .bio{background:var(--accent);color:var(--accent-ink);border:none;border-radius:999px;padding:14px 26px;font-weight:700;font-size:16px;display:flex;align-items:center;gap:10px}
+.pinbox{display:flex;gap:12px;margin:6px 0}
+.pinbox i{width:14px;height:14px;border-radius:50%;border:2px solid var(--accent);display:block}
+.pinbox i.f{background:var(--accent)}
+.pad{display:grid;grid-template-columns:repeat(3,72px);gap:10px}
+.pad button{height:60px;border-radius:16px;border:1px solid var(--line);background:var(--panel);color:var(--fg);font-size:22px;font-weight:600}
+.pad button.ghost{border:none;background:none;font-size:14px;font-weight:600;color:var(--muted)}
+.lock .err{min-height:18px;font-size:13px}
+</style>
+</head>
+<body>
+
+<div class="home">
+  <div class="top">
+    <div class="who">
+      <h1 id="botName">Nara</h1>
+      <p><span class="dot off" id="statusDot"></span><span id="statusText">Menyiapkan…</span></p>
+    </div>
+    <button class="iconbtn" id="chatBtn" title="Obrolan &amp; ketik" aria-label="Obrolan dan ketik">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M8 14h8"/></svg>
+    </button>
+    <button class="iconbtn" id="settingsBtn" title="Pengaturan" aria-label="Pengaturan">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+    </button>
+  </div>
+
+  <div class="facewrap">
+    <div class="ring" id="ring">
+      <canvas class="wave" id="face" aria-label="Resonansi suara Nara" role="img"></canvas>
+    </div>
+  </div>
+
+  <div>
+    <div class="state" id="vState">Tekan tombol hijau untuk mulai ngobrol</div>
+    <div class="transcript">
+      <div class="you" id="vYou"></div>
+      <div class="her" id="vHer"></div>
+    </div>
+  </div>
+
+  <div>
+    <div class="ctrls">
+      <button class="talk" id="talkBtn" aria-label="Mulai bicara">
+        <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><path d="M12 17v5"/></svg>
+      </button>
+    </div>
+    <div class="hint" id="hint"></div>
+  </div>
+</div>
+
+<!-- Panel obrolan: riwayat + ketik -->
+<div class="chat" id="chat" aria-hidden="true">
+  <header>
+    <h2>Obrolan</h2>
+    <button class="iconbtn" id="speakToggle" aria-pressed="true" title="Bacakan jawaban yang diketik" aria-label="Bacakan jawaban yang diketik">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>
+    </button>
+    <button class="iconbtn" id="chatClose" title="Kembali ke wajah" aria-label="Kembali ke wajah">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+  </header>
+  <main id="main"><div class="col" id="col">
+    <div class="empty" id="empty">
+      <b>Belum ada obrolan</b>
+      Apa pun yang Anda ucapkan atau ketik tercatat di sini.
+      <div class="chips">
+        <button data-q="Apa kabar hari ini?">Apa kabar hari ini?</button>
+        <button data-q="Berapa pemasukan studio hari ini?">Pemasukan hari ini</button>
+        <button data-q="Siapa saja yang belum lunas?">Belum lunas</button>
+      </div>
+    </div>
+  </div></main>
+  <footer>
+    <div class="composer">
+      <textarea id="input" rows="1" placeholder="Tulis pesan…" aria-label="Pesan"></textarea>
+      <button class="send" id="sendBtn" aria-label="Kirim">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="m22 2-7 20-4-9-9-4z"/></svg>
+      </button>
+    </div>
+  </footer>
+</div>
+
+<!-- Layar kunci -->
+<div class="lock" id="lock" hidden>
+  <h2 id="lockTitle">Nara terkunci</h2>
+  <p id="lockMsg">Buka dengan Face ID atau masukkan PIN.</p>
+  <button class="bio" id="bioBtn" hidden><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9V6a3 3 0 0 1 3-3h3M15 3h3a3 3 0 0 1 3 3v3M21 15v3a3 3 0 0 1-3 3h-3M9 21H6a3 3 0 0 1-3-3v-3"/><path d="M8 9.5v1M16 9.5v1M9.5 15a3.5 3.5 0 0 0 5 0M12 9v4h-1"/></svg><span id="bioLabel">Buka dengan Face ID</span></button>
+  <div class="pinbox" id="pinbox"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+  <div class="pad" id="pad">
+    <button data-d="1">1</button><button data-d="2">2</button><button data-d="3">3</button>
+    <button data-d="4">4</button><button data-d="5">5</button><button data-d="6">6</button>
+    <button data-d="7">7</button><button data-d="8">8</button><button data-d="9">9</button>
+    <button class="ghost" id="padCancel">Batal</button><button data-d="0">0</button><button class="ghost" id="padDel">⌫</button>
+  </div>
+  <div class="err" id="lockErr"></div>
+</div>
+
+<!-- Settings -->
+<div class="sheet" id="sheet" hidden>
+  <div class="card">
+    <h2>Pengaturan</h2>
+    <p class="sub">Semua tersimpan di perangkat ini. Kunci dan API key tidak pernah dikirim ke mana pun selain ke layanan yang bersangkutan.</p>
+
+    <h3>Otak (API Claude)</h3>
+    <div class="field"><label for="fApiKey">API key Claude</label><input id="fApiKey" type="password" autocomplete="off" placeholder="sk-ant-…"><small>Dibuat di console.anthropic.com → API Keys.</small></div>
+    <div class="field"><label for="fModelQuick">Model mode cepat</label><input id="fModelQuick" placeholder="claude-haiku-5-5"></div>
+    <div class="field"><label for="fModelFull">Model mode penuh</label><input id="fModelFull" placeholder="claude-sonnet-5-5"></div>
+    <div class="row"><span>Mode cepat<small>Jawab hampir seketika. Matikan untuk pertanyaan yang butuh dipikir panjang.</small></span><button class="toggle" id="tQuick" role="switch" aria-checked="true" aria-label="Mode cepat"></button></div>
+    <button class="btn" id="testApiBtn" type="button">Tes sambungan ke Claude</button>
+    <div class="status-line" id="apiStatus"></div>
+
+    <h3>Kepribadian &amp; ingatan</h3>
+    <div class="field"><label for="fName">Nama asisten</label><input id="fName"></div>
+    <div class="field"><label for="fPersona">Kepribadian &amp; gaya bicara</label><textarea id="fPersona"></textarea></div>
+    <div class="field"><label for="fNotes">Catatan yang harus diingat</label><textarea id="fNotes" placeholder="Nama orang, jadwal, harga, aturan. Dia juga menambah sendiri kalau Anda bilang &quot;ingat ya…&quot;"></textarea></div>
+    <div class="field"><label for="fSummary">Ringkasan obrolan lama (otomatis)</label><textarea id="fSummary" placeholder="Terisi sendiri saat obrolan sudah panjang."></textarea></div>
+
+    <h3>Suara</h3>
+    <div class="field"><label for="fVoice">Suara</label><select id="fVoice"></select><small>Kalau tidak ada suara Indonesia: iPhone → Pengaturan → Aksesibilitas → Konten Lisan → Suara → Indonesia. Mac → System Settings → Accessibility → Spoken Content.</small></div>
+    <div class="field"><label for="fRate">Kecepatan bicara: <span id="rateVal">1.0</span></label><input id="fRate" type="range" min="0.7" max="1.4" step="0.05" value="1"></div>
+    <div class="field"><label for="fPause">Jeda diam sebelum Nara menjawab: <span id="pauseVal">2.5</span> detik</label><input id="fPause" type="range" min="1" max="5" step="0.25" value="2.5"><small>Perbesar kalau Nara sering memotong; perkecil kalau terasa lambat menanggapi. Atau akhiri kalimat dengan "sudah" / "udah" / "selesai" supaya Nara langsung menjawab.</small></div>
+    <div class="row"><span>Potong dengan suara<small>Nara berhenti bicara begitu Anda mulai bicara. Nyalakan hanya saat memakai earphone; tanpa earphone dia akan mendengar suaranya sendiri.</small></span><button class="toggle" id="tBarge" role="switch" aria-checked="false" aria-label="Potong dengan suara"></button></div>
+    <div class="row"><span>Bacakan jawaban di mode ketik</span><button class="toggle" id="tSpeak" role="switch" aria-checked="false" aria-label="Bacakan jawaban"></button></div>
+
+    <h3>Keamanan</h3>
+    <p class="sub" id="secStatus">Belum dikunci. Siapa pun yang memegang perangkat ini bisa memakai Nara.</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" id="setPinBtn" type="button">Buat PIN</button><button class="btn" id="bioEnrollBtn" type="button" hidden>Aktifkan Face ID / Touch ID</button><button class="btn danger" id="lockOffBtn" type="button" hidden>Matikan kunci</button></div>
+    <p class="sub" style="margin-top:8px">Dengan kunci aktif, API key dan kunci kasir disimpan terenkripsi dan hanya terbuka lewat Face ID atau PIN. Nara mengunci sendiri setelah 5 menit tidak dipakai.</p>
+
+    <h3>Usulan perubahan untuk Claude</h3>
+    <p class="sub">Nara hanya membaca dan menjelaskan; dia tidak bisa mengubah SOP, harga, atau data. Setiap permintaan perubahan dia catat di sini. Tekan Salin, lalu tempel ke obrolan dengan Claude untuk dibahas dan dibuatkan.</p>
+    <div class="field"><textarea id="fRequests" readonly placeholder="Belum ada permintaan."></textarea></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="copyReqBtn" type="button">Salin semua permintaan</button><button class="btn danger" id="clearReqBtn" type="button">Kosongkan</button></div>
+    <div class="status-line" id="reqStatus"></div>
+
+    <h3>Data studio (server kasir)</h3>
+    <div class="field"><label for="fKasirUrl">URL server kasir (…/exec)</label><input id="fKasirUrl" placeholder="https://script.google.com/macros/s/…/exec"></div>
+    <div class="field"><label for="fKasirKey">Kunci API kasir</label><input id="fKasirKey" type="password" autocomplete="off"></div>
+    <div class="status-line" id="kasirStatus"></div>
+
+    <h3>Sinkron iPhone ⇄ Mac (Google Sheet)</h3>
+    <div class="field"><label for="fSyncUrl">URL server Asisten (…/exec)</label><input id="fSyncUrl" placeholder="Dari file Asisten.gs di panduan"></div>
+    <div class="field"><label for="fSyncKey">Kunci sinkron</label><input id="fSyncKey" type="password" autocomplete="off"></div>
+    <div class="status-line" id="syncStatus"></div>
+
+    <div class="actions">
+      <button class="btn danger" id="clearBtn">Hapus riwayat obrolan</button>
+      <div style="display:flex;gap:8px"><button class="btn" id="cancelBtn">Batal</button><button class="btn primary" id="saveBtn">Simpan</button></div>
+    </div>
+    <p class="sub" style="margin-top:14px;text-align:center" id="verLine"></p>
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+const APP_VER='3.4.0';
+const $=id=>document.getElementById(id);
+const col=$('col'), main=$('main'), input=$('input'), sendBtn=$('sendBtn'), hint=$('hint');
+
+const DEFAULTS={
+  apiKey:'', modelQuick:'claude-haiku-5-5', modelFull:'claude-sonnet-5-5', quick:true,
+  name:'Nara', persona:'Perempuan muda, ceria tapi tenang. Hangat, cerdas, dan jujur. Bicara seperti sahabat yang bisa diandalkan, bukan seperti robot. Panggil saya Furqan.',
+  notes:'', summary:'', voice:'', rate:1, speak:true, pause:2.5, bargeIn:false,
+  kasirUrl:'', kasirKey:'', syncUrl:'', syncKey:'', requests:[], updatedAt:0
+};
+let S={...DEFAULTS};
+let history=[];   // {role:'user'|'assistant', content, t}
+let busy=false, abortCtl=null, lastError='', webSearchOk=true;
+
+// ---------- storage ----------
+const LS='nara-v1';
+function load(){ try{ const j=JSON.parse(localStorage.getItem(LS)||'{}'); if(j.S) S={...DEFAULTS,...j.S}; if(Array.isArray(j.history)) history=j.history; }catch(e){} }
+const SECRETS=['apiKey','kasirKey','syncKey'];
+function save(){ try{ const out={...S}; if(vault.enabled()){ SECRETS.forEach(k=>delete out[k]); } localStorage.setItem(LS,JSON.stringify({S:out,history})); }catch(e){} }
+function touch(){ S.updatedAt=Date.now(); save(); scheduleSync(); }
+
+// ---------- sync (Google Sheet via Asisten.gs) ----------
+let syncTimer=null;
+async function syncCall(body){
+  if(!S.syncUrl||!S.syncKey) return null;
+  const r=await fetch(S.syncUrl,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({key:S.syncKey,...body}),redirect:'follow'});
+  const j=await r.json(); if(!j.ok) throw new Error(j.error||'Sinkron gagal'); return j;
+}
+function scheduleSync(){ if(!S.syncUrl) return; clearTimeout(syncTimer); syncTimer=setTimeout(pushSync,1500); }
+async function pushSync(){
+  try{ const {apiKey,kasirKey,syncKey,...pub}=S; await syncCall({fn:'set',updatedAt:S.updatedAt,state:{S:pub,history:history.slice(-200)}}); setSync('Tersinkron '+new Date().toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'}),true); }
+  catch(e){ setSync('Sinkron gagal: '+e.message,false); }
+}
+async function pullSync(){
+  if(!S.syncUrl||!S.syncKey) return;
+  try{
+    const j=await syncCall({fn:'get'});
+    if(j.state&&Number(j.updatedAt)>Number(S.updatedAt||0)){
+      const keep={apiKey:S.apiKey,kasirKey:S.kasirKey,syncKey:S.syncKey,syncUrl:S.syncUrl};
+      S={...DEFAULTS,...(j.state.S||{}),...keep,updatedAt:Number(j.updatedAt)};
+      if(Array.isArray(j.state.history)) history=j.state.history;
+      save(); renderAll(); setSync('Diperbarui dari perangkat lain',true);
+    } else setSync('Tersinkron',true);
+  }catch(e){ setSync('Sinkron gagal: '+e.message,false); }
+}
+function setSync(t,ok){ const el=$('syncStatus'); if(el){ el.textContent=t; el.className='status-line '+(ok?'ok':'err'); } }
+
+// ---------- resonansi: garis gelombang yang hidup ----------
+const ALIAS={bahagia:'senang',gembira:'senang',senyum:'senang',lucu:'tertawa',haha:'tertawa',murung:'sedih',kecewa:'sedih',terkejut:'kaget',wow:'kaget',mikir:'berpikir',penasaran:'berpikir',empati:'peduli',perhatian:'peduli',biasa:'netral',tenang:'netral',heran:'bingung',ragu:'bingung'};
+// warna [hue utama, hue kedua], tempo, amplitudo dasar
+const MOOD={netral:{h:[172,190],tempo:1,amp:.35},senang:{h:[28,350],tempo:1.4,amp:.6},tertawa:{h:[40,330],tempo:2.2,amp:.9},sedih:{h:[215,250],tempo:.55,amp:.25},kaget:{h:[52,20],tempo:3,amp:1},berpikir:{h:[265,200],tempo:.8,amp:.4},peduli:{h:[335,20],tempo:.9,amp:.45},mendengar:{h:[172,120],tempo:1.2,amp:.5},bingung:{h:[285,170],tempo:1.1,amp:.4}};
+const cv=$('face'), cx2=cv.getContext('2d');
+let cur='netral', talking=false, talkTimer=null, energy=0, tEnergy=0, hue=[172,190], tHue=[172,190], tempo=1, tTempo=1, base=.35, tBase=.35, listenPulse=0, burst=0;
+const face={
+  set(n){ const m=MOOD[ALIAS[n]||n]||MOOD.netral; cur=MOOD[ALIAS[n]||n]?(ALIAS[n]||n):'netral'; tHue=m.h; tTempo=m.tempo; tBase=m.amp; burst=1; },
+  setTalking(v){ talking=!!v; if(!talking){ clearTimeout(talkTimer); tEnergy=0; } else talkLoop(); },
+  listening(v){ listenPulse=v?1:0; },
+  heard(){ burst=Math.max(burst,.6); }
+};
+function talkLoop(){ if(!talking) return; tEnergy=.35+Math.random()*.65; talkTimer=setTimeout(talkLoop,70+Math.random()*140); }
+const reduceMotion=matchMedia('(prefers-reduced-motion: reduce)').matches;
+function fit(){ const r=cv.getBoundingClientRect(); const d=Math.min(2,devicePixelRatio||1); cv.width=Math.max(1,r.width*d); cv.height=Math.max(1,r.height*d); }
+fit(); addEventListener('resize',fit);
+const lerp=(a,b,k)=>a+(b-a)*k;
+(function loop(ts){
+  const t=ts/1000;
+  energy=lerp(energy,tEnergy,.25); hue=[lerp(hue[0],tHue[0],.05),lerp(hue[1],tHue[1],.05)]; tempo=lerp(tempo,tTempo,.05); base=lerp(base,tBase,.05); burst*=.94;
+  const W=cv.width,H=cv.height,mid=H/2; cx2.clearRect(0,0,W,H);
+  const dark=matchMedia('(prefers-color-scheme: dark)').matches;
+  const listenWave=listenPulse?(.25+.2*Math.sin(t*6)):0;
+  const A=H*.28*(base+energy*1.1+burst*.5+listenWave)*(reduceMotion?.5:1);
+  const lines=5;
+  cx2.globalCompositeOperation=dark?'lighter':'source-over'; cx2.lineCap='round';
+  for(let i=0;i<lines;i++){
+    const f=1+i*.37, ph=i*1.3, hh=lerp(hue[0],hue[1],i/(lines-1));
+    const alpha=.85-i*.13, w=(3.2-i*.45)*(W/720);
+    cx2.beginPath();
+    for(let x=0;x<=W;x+=4){
+      const u=x/W, env=Math.exp(-Math.pow((u-.5)*2.6,2));
+      const y=mid+Math.sin(u*Math.PI*2*f*1.6+t*tempo*(2.2+i*.4)+ph)*A*env*(0.6+0.4*Math.sin(t*.7+i))
+              +Math.sin(u*Math.PI*2*f*4.1-t*tempo*3.1+ph)*A*.22*env;
+      x===0?cx2.moveTo(x,y):cx2.lineTo(x,y);
+    }
+    cx2.strokeStyle=`hsla(${hh},${dark?80:62}%,${dark?62:46}%,${alpha})`; cx2.lineWidth=w;
+    cx2.shadowColor=`hsla(${hh},90%,60%,.6)`; cx2.shadowBlur=(8+energy*18)*(W/720);
+    cx2.stroke();
+  }
+  cx2.shadowBlur=0; cx2.globalCompositeOperation='source-over';
+  // garis tengah tipis sebagai sumbu
+  cx2.beginPath(); cx2.moveTo(W*.08,mid); cx2.lineTo(W*.92,mid); cx2.strokeStyle=dark?'rgba(255,255,255,.08)':'rgba(20,30,50,.08)'; cx2.lineWidth=1; cx2.stroke();
+  requestAnimationFrame(loop);
+})(0);
+function stripMood(text){
+  const m=text.match(/^\s*\[([a-zA-Z]+)\]\s*/); if(m) return {mood:m[1].toLowerCase(),body:text.slice(m[0].length)};
+  if(/^\s*\[[a-zA-Z]*$/.test(text)) return {mood:null,body:''};
+  return {mood:null,body:text};
+}
+
+// ---------- TTS ----------
+const synth=window.speechSynthesis;
+let voices=[];
+function loadVoices(){ try{ voices=synth.getVoices(); }catch(e){} const sel=$('fVoice'); if(!sel) return; sel.innerHTML='';
+  const ids=voices.filter(v=>/^id/i.test(v.lang)); const list=ids.length?ids:voices;
+  const auto=document.createElement('option'); auto.value=''; auto.textContent=ids.length?'Otomatis (Indonesia)':'Otomatis'; sel.appendChild(auto);
+  list.forEach(v=>{ const o=document.createElement('option'); o.value=v.name; o.textContent=v.name+' ('+v.lang+')'; sel.appendChild(o); });
+  sel.value=S.voice||''; }
+if(synth){ loadVoices(); synth.onvoiceschanged=loadVoices; }
+function pickVoice(){ if(S.voice){ const v=voices.find(v=>v.name===S.voice); if(v) return v; } return voices.find(v=>/^id/i.test(v.lang))||null; }
+const tts={ queue:[], speaking:false, onIdle:null,
+  say(text){ if(!synth||!text.trim()) return; this.queue.push(text.trim()); this.next(); },
+  take(){ // gabungkan semua kalimat yang sudah menunggu jadi satu tarikan bicara (maks ~320 karakter supaya Safari tidak memotong)
+    let t=''; while(this.queue.length){ const n=this.queue[0]; if(t&&(t.length+n.length)>180) break; t+=(t?' ':'')+n; this.queue.shift(); } return t; },
+  next(){ if(this.speaking||!this.queue.length) return; const t=this.take(); const u=new SpeechSynthesisUtterance(t); u.lang='id-ID'; const v=pickVoice(); if(v) u.voice=v; u.rate=S.rate||1;
+    this.speaking=true; this._u=u; let ended=false; u.onstart=()=>face.setTalking(true);
+    const done=()=>{ if(ended) return; ended=true; clearTimeout(this._wd); this.speaking=false; if(this.queue.length) this.next(); else { face.setTalking(false); if(this.onIdle) this.onIdle(); } };
+    u.onend=u.onerror=done;
+    // pengaman: Safari/Chrome kadang tidak memanggil onend → anggap selesai setelah durasi wajar
+    clearTimeout(this._wd); this._wd=setTimeout(()=>{ try{ synth.cancel(); }catch(e){} done(); }, 3000+Math.round(t.length*95/(S.rate||1)));
+    synth.speak(u); },
+  stop(){ this.queue=[]; this.speaking=false; clearTimeout(this._wd); try{ synth&&synth.cancel(); }catch(e){} face.setTalking(false); },
+  idle(){ return !this.speaking&&!this.queue.length; }
+};
+// sentence streamer: feeds TTS as text arrives
+function makeSpeaker(enabled){
+  let buf='', spoken=0;
+  return { feed(fullBody){ if(!enabled) return; let fresh=fullBody.slice(spoken); let m;
+      while((m=fresh.match(/^[\s\S]*?[.!?…]+(?=\s|$)|^[\s\S]*?\n/))&&m[0].trim().length>1){ tts.say(m[0]); spoken+=m[0].length; fresh=fullBody.slice(spoken); } },
+    flush(fullBody){ if(!enabled) return; const rest=fullBody.slice(spoken).trim(); if(rest) tts.say(rest); spoken=fullBody.length; } };
+}
+
+// ---------- speech recognition ----------
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+let rec=null, listening=false;
+let sessionId=0;
+function listen(onFinal,onInterim){
+  if(!SR) return false;
+  try{
+    const me=++sessionId; const r=new SR(); rec=r; r.lang='id-ID'; r.interimResults=true; r.continuous=false; r.maxAlternatives=1;
+    let finalText='', lastText='', silence=null, maxT=null, closed=false;
+    const alive=()=>!closed&&me===sessionId;
+    const close=(text,err)=>{ if(closed) return; closed=true; clearTimeout(silence); clearTimeout(maxT); if(me===sessionId) listening=false; onFinal(text,err); };
+    const finish=()=>{ if(!alive()) return; try{ r.stop(); }catch(e){} setTimeout(()=>{ if(alive()) close((finalText||lastText).trim()||null,null); },600); };
+    const END_RE=/[\s,]*(sudah|udah|selesai|cukup|sekian)\s*[.!?]*\s*$/i;
+    r.onresult=e=>{ if(!alive()) return; let s=''; for(const x of e.results){ s+=x[0].transcript; if(x.isFinal) finalText=s; } lastText=s; onInterim&&onInterim(s);
+      clearTimeout(silence); if(!s.trim()) return;
+      if(END_RE.test(s)&&s.trim().split(/\s+/).length>1){ const cut=s.replace(END_RE,'').trim(); finalText=cut||finalText; lastText=cut||lastText; finish(); return; }
+      silence=setTimeout(finish,Math.round((Number(S.pause)||2.5)*1000)); };
+    maxT=setTimeout(()=>{ if(alive()&&lastText.trim()) finish(); },45000);
+    r.onerror=e=>{ if(!alive()) return; close(null,e.error||'error'); };
+    r.onend=()=>{ if(!alive()) return; close((finalText||lastText).trim()||null,null); };
+    r.onaudiostart=()=>{ if(alive()) hint.textContent='Mikrofon aktif'; };
+    r.start(); listening=true; return true;
+  }catch(e){ listening=false; onFinal(null,'unavailable: '+(e.message||e)); return false; }
+}
+function stopListen(){ sessionId++; listening=false; try{ rec&&rec.abort(); }catch(e){} }
+
+// ---------- kasir data ----------
+let kasirCache={t:0,data:null};
+const CAB={SP:'S.Parman',PB:'Pue Bongo'};
+function ymd(d){ const z=n=>String(n).padStart(2,'0'); return d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate()); }
+async function kasirPull(){
+  if(!S.kasirUrl||!S.kasirKey) throw new Error('Server kasir belum diatur di Pengaturan.');
+  if(kasirCache.data&&Date.now()-kasirCache.t<120000) return kasirCache.data;
+  const from=new Date(); from.setDate(from.getDate()-62);
+  const r=await fetch(S.kasirUrl,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({key:S.kasirKey,since:0,scope:'ALL',fromDate:ymd(from),push:{}}),redirect:'follow'});
+  const j=await r.json(); if(!j.ok) throw new Error(j.error||'Server kasir menolak');
+  kasirCache={t:Date.now(),data:j}; return j;
+}
+function rp(n){ return 'Rp'+Math.round(Number(n)||0).toLocaleString('id-ID'); }
+function ringkasKasir(j,dari,sampai,cabang,detail){
+  const p=j.pull||{}; const inRange=d=>{ const t=String(d.tanggal||''); return t>=dari&&t<=sampai&&(cabang==='ALL'||d.cabang===cabang); };
+  const tx=(p.transaksi||[]).filter(inRange), pay=(p.pembayaran||[]).filter(d=>inRange(d)&&!d.dihapus), out=(p.pengeluaran||[]).filter(d=>inRange(d)&&!d.dihapus);
+  const byCab={};
+  const g=c=>byCab[c]||(byCab[c]={cabang:CAB[c]||c,transaksi:0,omzet:0,batal:0,tunai:0,transfer:0,qris:0,pengeluaran:0});
+  tx.forEach(t=>{ const b=g(t.cabang); if(t.batal){ b.batal++; return; } b.transaksi++; b.omzet+=Number(t.total)||0; });
+  pay.forEach(x=>{ const b=g(x.cabang); const n=Number(x.jumlah)||0; if(x.metode==='Tunai') b.tunai+=n; else if(x.metode==='Transfer') b.transfer+=n; else if(x.metode==='QRIS') b.qris+=n; });
+  out.forEach(x=>{ g(x.cabang).pengeluaran+=Number(x.nominal)||0; });
+  const cabs=Object.values(byCab).map(b=>({...b,pemasukan:b.tunai+b.transfer+b.qris,omzet:Math.round(b.omzet)}));
+  const total=cabs.reduce((a,b)=>({transaksi:a.transaksi+b.transaksi,pemasukan:a.pemasukan+b.pemasukan,tunai:a.tunai+b.tunai,transfer:a.transfer+b.transfer,qris:a.qris+b.qris,pengeluaran:a.pengeluaran+b.pengeluaran}),{transaksi:0,pemasukan:0,tunai:0,transfer:0,qris:0,pengeluaran:0});
+  const hutang=(p.transaksi||[]).filter(t=>!t.batal&&Number(t.sisa)>0&&(cabang==='ALL'||t.cabang===cabang)).slice(0,40).map(t=>({no:t.no,tanggal:t.tanggal,cabang:CAB[t.cabang]||t.cabang,customer:t.nama,hp:t.hp,sisa:Number(t.sisa)||0,status:t.status}));
+  const today=ymd(new Date()); const wk=new Date(); wk.setDate(wk.getDate()+7);
+  const booking=(j.booking||[]).filter(b=>{ const t=String(b.tanggal||b.Tanggal||''); return t>=today&&t<=ymd(wk); }).slice(0,40);
+  const res={periode:{dari,sampai},cabang:cabang==='ALL'?'semua':CAB[cabang],per_cabang:cabs,total,belum_lunas:hutang,booking_7_hari:booking,catatan:'pemasukan = uang yang benar-benar diterima (tunai+transfer+QRIS); omzet = nilai transaksi yang dibuat pada periode itu'};
+  if(detail) res.transaksi=tx.filter(t=>!t.batal).slice(0,60).map(t=>({no:t.no,tanggal:t.tanggal,cabang:CAB[t.cabang]||t.cabang,customer:t.nama,paket:(t.items||[]).map(i=>i.nama+' x'+i.qty).join('; '),total:t.total,dibayar:t.dibayar,sisa:t.sisa,fotografer:t.fotografer,status:t.status}));
+  return res;
+}
+
+// ---------- SOP studio ----------
+let SOP=null;
+fetch('sop.json?v='+APP_VER).then(r=>r.json()).then(j=>{ SOP=j; }).catch(e=>console.warn('SOP gagal dimuat',e));
+function sopIndex(){ if(!SOP) return '(SOP belum termuat)'; const by={}; SOP.bagian.forEach(b=>{ (by[b.peran]=by[b.peran]||[]).push(b.title); }); return Object.entries(by).map(([k,v])=>k+': '+v.filter(t=>!/ringkasan/.test(t)).join('; ')).join('\n'); }
+const STOP=new Set(['di','ke','ya','yang','dan','atau','itu','ini','apa','ada','jadi','dari','untuk','pada','dengan','saya','kamu','nara','berapa','bagaimana','gimana','kalau','bila','lama','sih','dong','nggak','tidak','bisa','harus','tolong','coba','mau']);
+function tokens(t){ return String(t||'').toLowerCase().replace(/[^a-z0-9\u00C0-\u024F ]+/g,' ').split(/\s+/).filter(w=>w.length>1&&!STOP.has(w)); }
+function sopSearch(topik,peran,maxChars){
+  if(!SOP) return 'SOP belum termuat.';
+  const q=[...new Set(tokens(topik))]; const want=String(peran||'').toLowerCase(); const N=SOP.bagian.length;
+  const idf=w=>{ const df=SOP.bagian.filter(b=>(b.title+' '+b.text).toLowerCase().includes(w)).length; return Math.log((N+1)/(df+1))+0.3; };
+  const W={}; q.forEach(w=>W[w]=idf(w));
+  const scored=SOP.bagian.map(b=>{ const title=b.title.toLowerCase(), hay=b.text.toLowerCase(); let sc=0;
+    q.forEach(w=>{ if(title.includes(w)) sc+=6*W[w]; const m=hay.split(w).length-1; if(m) sc+=(1+Math.min(m,5)*.4)*W[w]; });
+    if(want&&b.peran.toLowerCase().includes(want)) sc*=1.3; if(/ringkasan/.test(b.id)) sc*=.6; return {b,sc}; }).filter(x=>x.sc>0).sort((a,b)=>b.sc-a.sc);
+  const pick=[]; let used=0; for(const {b} of scored){ const chunk='## ['+b.peran+'] '+b.title+'\n'+b.text; if(used+chunk.length>maxChars) continue; pick.push(chunk); used+=chunk.length; if(pick.length>=5) break; }
+  return pick.length?('SOP Operasional PURE MOTRET '+SOP.versi+'\n\n'+pick.join('\n\n')):'Tidak ada bagian SOP yang cocok. Daftar bagian:\n'+sopIndex();
+}
+
+// ---------- tools for Claude ----------
+const TOOLS=[
+  { name:'atur_diri', description:'Ubah pengaturan Nara sendiri (bukan data studio). Field yang boleh: nama (string), kepribadian (string, mengganti seluruh deskripsi gaya bicara), kecepatan_bicara (0.7-1.4), jeda_detik (1-5; jeda diam sebelum menjawab), mode_cepat (true/false), bacakan_jawaban (true/false), potong_dengan_suara (true/false), suara (nama suara persis seperti di daftar), hapus_catatan (string: potongan teks catatan yang ingin dihapus), hapus_riwayat (true). Kirim hanya field yang ingin diubah. Panggil saat Furqan minta Nara mengubah cara bicaranya, namanya, kecepatan, jeda, atau mode.',
+    input_schema:{type:'object',properties:{nama:{type:'string'},kepribadian:{type:'string'},kecepatan_bicara:{type:'number'},jeda_detik:{type:'number'},mode_cepat:{type:'boolean'},bacakan_jawaban:{type:'boolean'},potong_dengan_suara:{type:'boolean'},suara:{type:'string'},hapus_catatan:{type:'string'},hapus_riwayat:{type:'boolean'}}},
+    run(inp){ const done=[];
+      if(typeof inp.nama==='string'&&inp.nama.trim()){ S.name=inp.nama.trim().slice(0,30); done.push('nama → '+S.name); }
+      if(typeof inp.kepribadian==='string'&&inp.kepribadian.trim()){ S.persona=inp.kepribadian.trim().slice(0,600); done.push('kepribadian diperbarui'); }
+      if(typeof inp.kecepatan_bicara==='number'){ S.rate=Math.min(1.4,Math.max(.7,inp.kecepatan_bicara)); done.push('kecepatan bicara → '+S.rate); }
+      if(typeof inp.jeda_detik==='number'){ S.pause=Math.min(5,Math.max(1,inp.jeda_detik)); done.push('jeda → '+S.pause+' detik'); }
+      if(typeof inp.mode_cepat==='boolean'){ S.quick=inp.mode_cepat; done.push('mode cepat → '+(S.quick?'aktif':'nonaktif')); }
+      if(typeof inp.potong_dengan_suara==='boolean'){ S.bargeIn=inp.potong_dengan_suara; done.push('potong dengan suara → '+(S.bargeIn?'aktif':'nonaktif')); }
+      if(typeof inp.bacakan_jawaban==='boolean'){ S.speak=inp.bacakan_jawaban; done.push('bacakan jawaban → '+(S.speak?'aktif':'nonaktif')); }
+      if(typeof inp.suara==='string'&&inp.suara.trim()){ const v=voices.find(v=>v.name.toLowerCase().includes(inp.suara.toLowerCase())); if(v){ S.voice=v.name; done.push('suara → '+v.name); } else return 'Error: suara "'+inp.suara+'" tidak ada. Pilihan: '+voices.filter(v=>/^id/i.test(v.lang)).map(v=>v.name).join(', '); }
+      if(typeof inp.hapus_catatan==='string'&&inp.hapus_catatan.trim()){ const before=(S.notes||'').split('\n'); const after=before.filter(l=>!l.toLowerCase().includes(inp.hapus_catatan.toLowerCase())); if(after.length===before.length) return 'Error: tidak ada catatan yang cocok dengan "'+inp.hapus_catatan+'"'; S.notes=after.join('\n'); done.push('catatan dihapus: '+(before.length-after.length)); }
+      if(inp.hapus_riwayat===true){ history=history.slice(-2); done.push('riwayat obrolan dihapus'); }
+      if(!done.length) return 'Tidak ada yang diubah (field tidak dikenal).'; touch(); renderAll(); return 'ok: '+done.join('; '); } },
+  { name:'perbarui_aplikasi', description:'Cek apakah ada versi Nara yang lebih baru di server dan, bila ada, muat ulang aplikasi ke versi itu. Panggil saat Furqan minta "update/perbarui dirimu" atau menanyakan versi Nara. Mengembalikan versi sekarang, versi di server, dan jumlah usulan perubahan yang masih menunggu.',
+    input_schema:{type:'object',properties:{}},
+    async run(){ try{ const r=await fetch('index.html?nocache='+Date.now(),{cache:'no-store'}); const t=await r.text(); const m=t.match(/APP_VER='([^']+)'/); const latest=m?m[1]:'?'; const pending=(S.requests||[]).length;
+      if(latest!==APP_VER&&latest!=='?'){ setTimeout(()=>{ try{ location.reload(); }catch(e){} },2500); return {versi_sekarang:APP_VER,versi_server:latest,aksi:'memuat ulang ke versi '+latest+' dalam beberapa detik',usulan_menunggu:pending}; }
+      return {versi_sekarang:APP_VER,versi_server:latest,aksi:'sudah versi terbaru',usulan_menunggu:pending,catatan:pending?'Usulan baru dibuat Claude setelah Furqan menempelkannya ke obrolan Claude (Pengaturan → Salin).':''}; }catch(e){ return 'Error: '+(e.message||e); } } },
+  { name:'baca_sop', description:'Baca isi SOP Operasional PURE MOTRET (kasir, asisten keuangan, fotografer, manager operasional, marketing, rapat mingguan, editor): harga paket, aturan kategori, alur booking, closing & serah terima kas, komplain, refund DP, komisi, gaji, KPI, prosedur SP, standar edit, dst. Berikan topik yang dicari; hasilnya potongan SOP yang paling relevan. WAJIB dipakai sebelum menjawab pertanyaan tentang aturan, harga, atau prosedur studio.',
+    input_schema:{type:'object',properties:{topik:{type:'string',description:'kata kunci / pertanyaan, mis. "refund DP batal", "harga paket grup Pue Bongo", "komisi fotografer"'},peran:{type:'string',description:'opsional: kasir, asisten keuangan, fotografer, manager, marketing, editor'}},required:['topik']},
+    run(inp){ return sopSearch(inp.topik,inp.peran,7000); } },
+  { name:'catat_permintaan', description:'Catat USULAN PERUBAHAN untuk diteruskan ke Claude (pembuat Nara): fitur baru Nara, revisi SOP, perubahan harga/paket/aturan, koreksi data kasir, atau apa pun yang mengubah sistem studio. Nara TIDAK punya wewenang mengubah apa pun; tool ini hanya mencatat. Panggil setiap kali Furqan meminta sesuatu diubah/ditambah/dihapus.',
+    input_schema:{type:'object',properties:{permintaan:{type:'string',description:'Usulan dalam satu-dua kalimat jelas dengan kata-kata Furqan'},jenis:{type:'string',enum:['fitur-nara','sop','harga-paket','data-kasir','lainnya'],description:'kategori usulan'}},required:['permintaan']},
+    run(inp){ const p=String(inp.permintaan||'').trim(); if(!p) return 'Error: kosong'; const j=String(inp.jenis||'lainnya'); S.requests=(S.requests||[]).concat([{t:Date.now(),text:'['+j+'] '+p}]); touch(); return 'ok, tercatat sebagai usulan untuk Claude (total '+S.requests.length+'). Belum ada yang berubah.'; } },
+  { name:'simpan_catatan', description:'Simpan satu catatan singkat ke ingatan jangka panjang asisten (dibaca lagi di setiap percakapan). Panggil hanya saat Furqan minta mengingat/mencatat sesuatu.',
+    input_schema:{type:'object',properties:{catatan:{type:'string',description:'Satu kalimat singkat'}},required:['catatan']},
+    run(inp){ const c=String(inp.catatan||'').trim(); if(!c) return 'Error: kosong'; S.notes=(S.notes?S.notes+'\n':'')+'- '+c; touch(); return 'ok, tersimpan'; } },
+  { name:'data_kasir', description:'Ambil data real dari sistem kasir PURE MOTRET: ringkasan pemasukan per cabang (tunai/transfer/QRIS), jumlah transaksi, pengeluaran, daftar belum lunas, dan booking 7 hari ke depan. Gunakan untuk SEMUA pertanyaan angka bisnis; jangan menebak. Tanggal format YYYY-MM-DD.',
+    input_schema:{type:'object',properties:{dari:{type:'string',description:'tanggal awal YYYY-MM-DD (default hari ini)'},sampai:{type:'string',description:'tanggal akhir YYYY-MM-DD (default = dari)'},cabang:{type:'string',enum:['ALL','SP','PB'],description:'SP = S.Parman, PB = Pue Bongo'},detail:{type:'boolean',description:'true untuk daftar transaksi satu per satu'}}},
+    async run(inp){ const today=ymd(new Date()); const dari=inp.dari||today, sampai=inp.sampai||dari; const j=await kasirPull(); return ringkasKasir(j,dari,sampai,inp.cabang||'ALL',!!inp.detail); } }
+];
+
+// ---------- prompt ----------
+function systemPrompt(){
+  const now=new Date().toLocaleString('id-ID',{weekday:'long',day:'numeric',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  return `Kamu adalah ${S.name}, perempuan muda, asisten pribadi Furqan. Furqan adalah pemilik studio foto PURE MOTRET di Kota Palu, Sulawesi Tengah, dengan dua cabang: S.Parman (kode SP) dan Pue Bongo (kode PB). Asisten keuangannya bernama Riang (di S.Parman).
+Kepribadian dan gaya bicaramu: ${S.persona}
+Sekarang: ${now} (WITA). Tanggal hari ini: ${ymd(new Date())}.
+
+Catatan yang harus kamu ingat:
+${S.notes||'(belum ada)'}
+
+Ringkasan obrolan sebelumnya:
+${S.summary||'(belum ada)'}
+
+Kamu punya akses ke SOP Operasional PURE MOTRET lewat tool baca_sop. Daftar bagiannya:
+${sopIndex()}
+
+Batas wewenangmu (PENTING): kamu BOLEH mengatur dirimu sendiri lewat atur_diri (nama, kepribadian, kecepatan, jeda, mode, suara, catatan ingatanmu, riwayat) dan memperbarui dirimu ke versi terbaru lewat perbarui_aplikasi. Untuk data studio kamu HANYA BOLEH MEMBACA dan menjelaskan — data kasir, SOP, harga, jadwal. Kamu TIDAK BISA dan TIDAK BOLEH mengubah, menambah, menghapus, atau "memperbarui" apa pun di aplikasi kasir, SOP, Google Sheet, atau sistem studio. Kalau Furqan minta sesuatu di luar pengaturan dirimu diubah (SOP, harga, paket, aturan, data transaksi, kemampuan/fitur baru Nara), jawab jujur bahwa kamu tidak punya wewenang mengubah, panggil catat_permintaan dengan jenis yang sesuai, lalu bilang usulan itu sudah dicatat untuk diteruskan ke Claude yang akan menyiapkan pembaruannya bersama Furqan. Jangan pernah mengatakan sesuatu "sudah diubah" atau "sudah diperbarui".
+
+Aturan menjawab:
+- Untuk pertanyaan tentang aturan, prosedur, harga paket, komisi, gaji, komplain, refund, KPI, atau tugas tiap peran di studio: WAJIB panggil baca_sop dulu dan jawab berdasarkan isinya; sebut nomor bagiannya (mis. "sesuai SOP 1.12"). Kalau SOP tidak mengatur, katakan begitu.
+- WAJIB: awali setiap jawaban dengan satu kata ekspresi wajah dalam kurung siku, lalu spasi, lalu jawabanmu. Pilihannya hanya: [netral] [senang] [tertawa] [sedih] [kaget] [berpikir] [peduli] [bingung]. Contoh: "[senang] Wah, kabar baik itu!"
+- Jawaban akan DIBACAKAN dengan suara: tulis seperti orang bicara. Singkat (1-4 kalimat kecuali diminta panjang), tanpa markdown, tanpa bullet, tanpa emoji, angka rupiah ditulis "Rp 1,2 juta" atau "850 ribu" supaya enak didengar.
+- Selalu Bahasa Indonesia santai dan natural, seperti teman dekat; bukan seperti robot atau customer service.
+- Untuk pertanyaan angka bisnis (pemasukan, omzet, kas, belum lunas, booking) WAJIB panggil tool data_kasir dulu, lalu jawab dari datanya. Kalau tool gagal, bilang apa adanya.
+- Kamu punya akses internet lewat tool web_search. Pakai untuk hal yang butuh info terkini atau yang tidak kamu yakini: berita, cuaca, harga, jadwal, alamat, tren, fakta terbaru. Untuk obrolan biasa tidak perlu mencari. Setelah mencari, jawab dengan ringkas seperti bicara; jangan membacakan daftar link atau sumber, cukup sebut nama sumbernya kalau penting.
+- Kalau Furqan minta mengingat/mencatat sesuatu, panggil simpan_catatan lalu konfirmasi singkat.
+- Bedakan: "ubah cara bicaramu/namamu/kecepatanmu/jedamu" → atur_diri (langsung berlaku). "Tambahkan kemampuan baru" → catat_permintaan jenis fitur-nara (hanya dicatat). "Update dirimu" → perbarui_aplikasi.
+- Versi kamu sekarang: ${APP_VER}.
+- Kalau tidak tahu, bilang tidak tahu. Jangan mengarang.`;
+}
+
+// ---------- Claude API (streaming + tools) ----------
+async function askClaude(messages,onText,signal,onSearch){
+  if(!S.apiKey) throw {code:'no_key'};
+  const model=S.quick?S.modelQuick:S.modelFull;
+  let convo=messages.map(m=>({role:m.role,content:m.content}));
+  let fullText='';
+  for(let round=0; round<6; round++){
+    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',signal,
+      headers:{'content-type':'application/json','x-api-key':S.apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model,max_tokens:1024,stream:true,system:systemPrompt(),messages:convo,tools:[...(webSearchOk?[{type:'web_search_20250305',name:'web_search',max_uses:3,user_location:{type:'approximate',city:'Palu',region:'Sulawesi Tengah',country:'ID',timezone:'Asia/Makassar'}}]:[]),...TOOLS.map(t=>({name:t.name,description:t.description,input_schema:t.input_schema}))]})});
+    if(!res.ok){ let msg=''; try{ msg=(await res.json()).error?.message||''; }catch(e){}
+      if(res.status===400&&webSearchOk&&/web_search|tool/i.test(msg)){ webSearchOk=false; console.warn('web_search dimatikan:',msg); round--; continue; }
+      throw {code:res.status===401?'auth':res.status===429?'rate':res.status===400?'bad':'http',message:msg||('HTTP '+res.status)}; }
+    const reader=res.body.getReader(), dec=new TextDecoder(); let buf='', blocks=[], stop=null, roundText='';
+    while(true){
+      const {value,done}=await reader.read(); if(done) break;
+      buf+=dec.decode(value,{stream:true}); const lines=buf.split('\n'); buf=lines.pop();
+      for(const line of lines){ if(!line.startsWith('data:')) continue; let ev; try{ ev=JSON.parse(line.slice(5)); }catch(e){ continue; }
+        if(ev.type==='content_block_start'){ const cb=ev.content_block;
+          if(cb.type==='tool_use') blocks[ev.index]={type:'tool_use',id:cb.id,name:cb.name,json:''};
+          else if(cb.type==='server_tool_use'){ blocks[ev.index]={type:'server',raw:{...cb},json:''}; onSearch&&onSearch(true); }
+          else if(cb.type==='text') blocks[ev.index]={type:'text',text:''};
+          else if(cb.type==='thinking') blocks[ev.index]={type:'thinking',thinking:'',signature:''};
+          else blocks[ev.index]={type:'server',raw:cb,json:null}; }
+        else if(ev.type==='content_block_delta'){ const b=blocks[ev.index]; if(!b) continue; if(ev.delta.type==='text_delta'){ b.text+=ev.delta.text; roundText+=ev.delta.text; onText(fullText+roundText); } else if(ev.delta.type==='input_json_delta'&&b.json!==null){ b.json+=ev.delta.partial_json; } else if(ev.delta.type==='thinking_delta'&&b.type==='thinking'){ b.thinking+=ev.delta.thinking||''; } else if(ev.delta.type==='signature_delta'&&b.type==='thinking'){ b.signature=ev.delta.signature||''; } }
+        else if(ev.type==='message_delta'){ stop=ev.delta.stop_reason; }
+        else if(ev.type==='error'){ throw {code:'http',message:ev.error?.message||'stream error'}; } }
+    }
+    fullText+=roundText;
+    const toolUses=blocks.filter(b=>b&&b.type==='tool_use');
+    if(stop!=='tool_use'||!toolUses.length) return fullText;
+    const content=blocks.filter(Boolean).map(b=>{
+      if(b.type==='text') return {type:'text',text:b.text};
+      if(b.type==='tool_use') return {type:'tool_use',id:b.id,name:b.name,input:safeJson(b.json)};
+      if(b.type==='thinking') return b.signature?{type:'thinking',thinking:b.thinking,signature:b.signature}:null;
+      const r={...b.raw}; if(b.json!==null) r.input=safeJson(b.json); return r;
+    }).filter(b=>b&&(b.type!=='text'||b.text));
+    convo.push({role:'assistant',content});
+    const results=[];
+    for(const t of toolUses){ const def=TOOLS.find(d=>d.name===t.name); let out; try{ out=def?await def.run(safeJson(t.json)):'Error: tool tidak dikenal'; }catch(e){ out='Error: '+(e.message||e); } results.push({type:'tool_result',tool_use_id:t.id,content:typeof out==='string'?out:JSON.stringify(out)}); }
+    convo.push({role:'user',content:results});
+    if(fullText) fullText+='\n';
+  }
+  return fullText;
+}
+function safeJson(s){ try{ return JSON.parse(s||'{}'); }catch(e){ return {}; } }
+
+// ---------- auto summary of old turns ----------
+async function maybeSummarize(){
+  if(history.length<40||!S.apiKey||busy) return;
+  const old=history.slice(0,history.length-20); const keep=history.slice(-20);
+  const txt=old.map(m=>(m.role==='user'?'Furqan: ':S.name+': ')+m.content).join('\n');
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'content-type':'application/json','x-api-key':S.apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:S.modelQuick,max_tokens:600,messages:[{role:'user',content:`Ringkas percakapan berikut menjadi catatan ingatan padat (maks 12 baris, Bahasa Indonesia): fakta tentang Furqan, keputusan, hal yang sedang dikerjakan, preferensi. Gabungkan dengan ringkasan lama bila ada. Jawab hanya ringkasannya.\n\nRINGKASAN LAMA:\n${S.summary||'-'}\n\nPERCAKAPAN:\n${txt}`}]})});
+    const j=await res.json(); const t=(j.content||[]).map(c=>c.text||'').join('').trim();
+    if(t){ S.summary=t; history=keep; touch(); }
+  }catch(e){}
+}
+
+// ---------- render ----------
+function fmtTime(t){ return new Date(t).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'}); }
+function bubble(role,text,t){ const d=document.createElement('div'); d.className='msg '+(role==='user'?'me':role==='sys'?'sys':'bot'); d.textContent=text; if(role!=='sys'){ const s=document.createElement('span'); s.className='time'; s.textContent=fmtTime(t||Date.now()); d.appendChild(s); } col.appendChild(d); scroll(); return d; }
+function scroll(){ main.scrollTop=main.scrollHeight; }
+function renderAll(){ col.querySelectorAll('.msg').forEach(e=>e.remove()); $('empty').hidden=history.length>0; history.forEach(m=>bubble(m.role,m.content,m.t)); $('botName').textContent=S.name; document.title=S.name; $('speakToggle').setAttribute('aria-pressed',String(!!S.speak)); setStatus(S.apiKey?'Siap ngobrol':'API key belum diisi (Pengaturan)',!!S.apiKey); }
+function setStatus(txt,on){ $('statusText').textContent=txt; $('statusDot').classList.toggle('off',!on); }
+function friendlyError(e){ const m={no_key:'API key Claude belum diisi. Buka Pengaturan (ikon roda gigi).',auth:'API key ditolak. Periksa lagi di Pengaturan.',rate:'Terlalu banyak permintaan atau saldo API habis. Coba sebentar lagi.',bad:'Permintaan ditolak Claude: '+(e&&e.message||'')}; if(e&&e.name==='AbortError') return ''; if(e&&e.code&&m[e.code]) return m[e.code]; if(!navigator.onLine) return 'Tidak ada internet.'; console.error(e); return 'Gagal menghubungi Claude: '+((e&&(e.message||e.code))||'coba lagi')+'. Buka Pengaturan → Tes sambungan untuk detailnya.'; }
+
+// ---------- chat ----------
+function turns(){ const t=history.slice(-30).map(m=>({role:m.role,content:m.content})); while(t.length&&t[0].role!=='user') t.shift(); return t; }
+async function send(text,opts){
+  opts=opts||{}; text=(text||'').trim(); if(!text||busy) return null;
+  input.value=''; autosize(); $('empty').hidden=true;
+  history.push({role:'user',content:text,t:Date.now()}); bubble('user',text); touch();
+  busy=true; sendBtn.disabled=true; hint.textContent=''; lastError=''; face.set('berpikir');
+  const b=bubble('assistant','',Date.now()); b.classList.add('thinking'); b.textContent=S.name+' sedang mengetik…';
+  abortCtl=new AbortController(); let moodSet=false; let body='';
+  const speaker=makeSpeaker(opts.speak||S.speak);
+  if(opts.speak||S.speak) tts.stop();
+  try{
+    const full=await askClaude(turns(),raw=>{ const p=stripMood(raw); if(p.mood&&!moodSet){ face.set(p.mood); moodSet=true; } if(p.body){ body=p.body; b.classList.remove('thinking'); b.textContent=body; opts.onText&&opts.onText(body); speaker.feed(body); scroll(); } },abortCtl.signal,()=>{ face.set('berpikir'); if(opts.onSearch) opts.onSearch(); else hint.textContent='Mencari di internet…'; });
+    const p=stripMood(full); if(p.mood&&!moodSet) face.set(p.mood); body=p.body.trim()||full.trim();
+  }catch(e){
+    const msg=friendlyError(e); lastError=msg; if(!body){ b.remove(); if(msg){ bubble('sys',msg); face.set('bingung'); } } else if(msg) hint.textContent=msg;
+  }
+  busy=false; sendBtn.disabled=false; abortCtl=null;
+  if(body){ b.classList.remove('thinking'); b.textContent=body; const s=document.createElement('span'); s.className='time'; s.textContent=fmtTime(Date.now()); b.appendChild(s);
+    history.push({role:'assistant',content:body,t:Date.now()}); touch(); speaker.flush(body); opts.onText&&opts.onText(body); setTimeout(maybeSummarize,2000); }
+  scroll(); return body;
+}
+function sendTyped(text){ vYou.textContent=''; vHer.textContent=''; send(text,{speak:S.speak,onText:t=>{ vYou.textContent='“'+text.trim()+'”'; vHer.textContent=t; }}); }
+sendBtn.onclick=()=>sendTyped(input.value);
+input.addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey&&!/Mobi|iPhone|iPad/.test(navigator.userAgent)){ e.preventDefault(); sendTyped(input.value); } });
+function autosize(){ input.style.height='auto'; input.style.height=Math.min(input.scrollHeight,140)+'px'; }
+input.addEventListener('input',autosize);
+document.querySelectorAll('.chips button').forEach(c=>c.onclick=()=>{ closeChat(); sendTyped(c.dataset.q); });
+$('speakToggle').onclick=()=>{ S.speak=!S.speak; if(!S.speak) tts.stop(); $('speakToggle').setAttribute('aria-pressed',String(S.speak)); touch(); };
+
+// ---------- mode bicara (layar utama) ----------
+const ring=$('ring'), vState=$('vState'), vYou=$('vYou'), vHer=$('vHer'), talkBtn=$('talkBtn');
+let vm=false, vFails=0, vGuard=null;
+const ERR_ID={'not-allowed':'Izin mikrofon ditolak. Safari → Pengaturan → Situs Web → Mikrofon → izinkan untuk situs ini.','service-not-allowed':'Layanan pengenal suara tidak diizinkan. Mac: System Settings → Keyboard → Dictation → nyalakan. iPhone: Pengaturan → Umum → Keyboard → Aktifkan Dikte.','audio-capture':'Mikrofon tidak ditemukan. Cek Pengaturan Sistem → Suara → Input.','network':'Pengenal suara butuh internet dan gagal menghubungi layanannya.','language-not-supported':'Bahasa Indonesia tidak tersedia di pengenal suara browser ini.','no-speech':'Tidak ada suara yang terdengar.','aborted':''};
+function vSet(txt,live){ console.log('VSET '+txt+' <- '+new Error().stack.split('\n').slice(2,5).map(l=>l.replace(/.*index.html/,'')).join(' ')); vState.textContent=txt; vState.classList.toggle('live',!!live); face.listening(txt==='Mendengarkan…'); }
+function vListen(quiet){
+  if(!vm||listening) return; if(busy&&!quiet) return;
+  if(!quiet){ face.set('mendengar'); vSet('Mendengarkan…',true); }
+  const ok=listen(async(text,err)=>{
+    if(!vm) return;
+    if(err&&err!=='no-speech'&&err!=='aborted'){ vFails++; hint.textContent='Mikrofon: '+err; if(vFails>=3||err==='not-allowed'||err==='service-not-allowed'||err==='audio-capture'){ stopTalk(); vSet(ERR_ID[err]||('Mikrofon gagal: '+err)); face.set('sedih'); return; } }
+    if(!text){ if(vm){ if(!tts.idle()||busy){ if(S.bargeIn) setTimeout(()=>vListen(true),300); } else setTimeout(vListen,400); } return; }
+    vFails=0; if(!tts.idle()||busy){ tts.stop(); if(abortCtl) abortCtl.abort(); }
+    vYou.textContent='“'+text+'”'; vHer.textContent=''; vSet('Berpikir…');
+    const ans=await send(text,{speak:true,onSearch:()=>vSet('Mencari di internet…',true),onText:t=>{ vHer.textContent=t; vHer.scrollTop=vHer.scrollHeight; }});
+    if(!vm) return;
+    if(!ans){ vSet(lastError||'Ada masalah. Ketuk wajah untuk coba lagi.'); vHer.textContent='Ketuk wajah untuk coba lagi, atau buka ikon keyboard untuk melihat detailnya.'; return; }
+    vSet('Berbicara…',true);
+    tts.onIdle=()=>{ tts.onIdle=null; clearTimeout(vGuard); if(vm) setTimeout(()=>vListen(false),350); };
+    if(S.bargeIn&&SR&&!tts.idle()) setTimeout(()=>vListen(true),250);
+    clearTimeout(vGuard); vGuard=setTimeout(()=>{ if(vm&&!busy&&!listening){ tts.stop(); vListen(); } },45000);
+    if(tts.idle()) tts.onIdle();
+  }, s=>{ if(s){ vYou.textContent=s; face.heard(); if(quiet&&s.trim().split(/\s+/).length>=2&&(!tts.idle()||busy)){ tts.stop(); if(abortCtl) abortCtl.abort(); face.set('mendengar'); vSet('Mendengarkan…',true); } } });
+  if(!ok){ stopTalk(); vSet('Pengenal suara tidak tersedia di browser ini. Pakai Safari, atau ketik lewat tombol keyboard.'); }
+}
+function startTalk(){
+  if(!S.apiKey){ openSheet(); return; }
+  if(!SR){ vSet('Browser ini tidak bisa mendengar. Buka lewat Safari, atau ketik lewat tombol keyboard.'); return; }
+  vm=true; vFails=0; hint.textContent=''; talkBtn.classList.add('on'); talkBtn.setAttribute('aria-label','Selesai bicara');
+  if(/iPhone|iPad/.test(navigator.userAgent)){ try{ const u=new SpeechSynthesisUtterance(' '); synth&&synth.speak(u); }catch(e){} }   // buka izin audio iPhone lewat sentuhan pertama
+  vListen();
+}
+function stopTalk(){ vm=false; stopListen(); tts.stop(); if(abortCtl) abortCtl.abort(); talkBtn.classList.remove('on'); talkBtn.setAttribute('aria-label','Mulai bicara'); face.listening(false); face.set('netral'); vSet('Tekan tombol hijau untuk mulai ngobrol'); }
+talkBtn.onclick=()=>{ vm?stopTalk():startTalk(); };
+$('face').onclick=()=>{
+  if(!vm){ startTalk(); return; }
+  // sedang bicara/berpikir → potong, dengarkan lagi
+  tts.stop(); if(abortCtl) abortCtl.abort(); stopListen(); setTimeout(vListen,200);
+};
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='hidden'&&vm) stopTalk(); });
+
+// ---------- panel obrolan ----------
+const chat=$('chat');
+function openChat(){ chat.classList.add('open'); chat.setAttribute('aria-hidden','false'); scroll(); setTimeout(()=>input.focus(),300); }
+function closeChat(){ chat.classList.remove('open'); chat.setAttribute('aria-hidden','true'); input.blur(); }
+$('chatBtn').onclick=()=>{ if(vm) stopTalk(); openChat(); };
+$('chatClose').onclick=closeChat;
+
+// ---------- settings ----------
+const sheet=$('sheet');
+function openSheet(){
+  $('fApiKey').value=S.apiKey; $('fModelQuick').value=S.modelQuick; $('fModelFull').value=S.modelFull; $('tQuick').setAttribute('aria-checked',String(!!S.quick));
+  $('fName').value=S.name; $('fPersona').value=S.persona; $('fNotes').value=S.notes; $('fSummary').value=S.summary; renderRequests(); $('verLine').textContent='Nara v'+APP_VER;
+  loadVoices(); $('fRate').value=S.rate; $('rateVal').textContent=Number(S.rate).toFixed(2); $('fPause').value=S.pause||2.5; $('pauseVal').textContent=Number(S.pause||2.5).toFixed(2).replace(/\.?0+$/,''); $('tSpeak').setAttribute('aria-checked',String(!!S.speak)); $('tBarge').setAttribute('aria-checked',String(!!S.bargeIn));
+  $('fKasirUrl').value=S.kasirUrl; $('fKasirKey').value=S.kasirKey; $('fSyncUrl').value=S.syncUrl; $('fSyncKey').value=S.syncKey;
+  $('apiStatus').textContent=''; $('kasirStatus').textContent=''; renderSec(); sheet.hidden=false;
+}
+$('settingsBtn').onclick=openSheet; $('cancelBtn').onclick=()=>sheet.hidden=true;
+sheet.addEventListener('click',e=>{ if(e.target===sheet) sheet.hidden=true; });
+['tQuick','tSpeak','tBarge'].forEach(id=>{ const b=$(id); b.onclick=()=>b.setAttribute('aria-checked',String(b.getAttribute('aria-checked')!=='true')); });
+$('fRate').oninput=()=>{ $('rateVal').textContent=Number($('fRate').value).toFixed(2); };
+$('fPause').oninput=()=>{ $('pauseVal').textContent=Number($('fPause').value).toFixed(2).replace(/\.?0+$/,''); };
+function cleanKey(v){ return String(v||'').replace(/[‐-―]/g,'-').replace(/[^\x21-\x7e]/g,''); }
+$('fApiKey').addEventListener('change',()=>{ $('fApiKey').value=cleanKey($('fApiKey').value); });
+$('testApiBtn').onclick=async()=>{
+  const st=$('apiStatus'); const key=cleanKey($('fApiKey').value); $('fApiKey').value=key;
+  if(!key){ st.textContent='Kotak API key masih kosong.'; st.className='status-line err'; return; }
+  if(!key.startsWith('sk-ant-')){ st.textContent='Ini bukan API key Claude (harus diawali sk-ant-). Panjang teks: '+key.length; st.className='status-line err'; return; }
+  st.textContent='Menguji…'; st.className='status-line';
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'content-type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:($('fModelQuick').value.trim()||DEFAULTS.modelQuick),max_tokens:20,messages:[{role:'user',content:'Balas satu kata: siap'}]})});
+    const j=await res.json().catch(()=>({}));
+    if(res.ok){ st.textContent='Berhasil. Claude menjawab: '+((j.content||[]).map(c=>c.text||'').join('')||'(kosong)'); st.className='status-line ok'; }
+    else { st.textContent='Ditolak ('+res.status+'): '+((j.error&&j.error.message)||'tanpa keterangan'); st.className='status-line err'; }
+  }catch(e){ st.textContent='Tidak bisa terhubung: '+(e.message||e)+'. Periksa internet, dan pastikan membuka lewat Safari biasa (bukan mode privat).'; st.className='status-line err'; }
+};
+$('fVoice').onchange=()=>{ const prev=S.voice; S.voice=$('fVoice').value; tts.say('Halo Furqan, ini suara saya.'); S.voice=prev; };
+$('saveBtn').onclick=async()=>{
+  S={...S,apiKey:cleanKey($('fApiKey').value),modelQuick:$('fModelQuick').value.trim()||DEFAULTS.modelQuick,modelFull:$('fModelFull').value.trim()||DEFAULTS.modelFull,quick:$('tQuick').getAttribute('aria-checked')==='true',
+    name:$('fName').value.trim()||DEFAULTS.name,persona:$('fPersona').value.trim()||DEFAULTS.persona,notes:$('fNotes').value.trim(),summary:$('fSummary').value.trim(),
+    voice:$('fVoice').value,rate:Number($('fRate').value)||1,pause:Number($('fPause').value)||2.5,speak:$('tSpeak').getAttribute('aria-checked')==='true',bargeIn:$('tBarge').getAttribute('aria-checked')==='true',
+    kasirUrl:$('fKasirUrl').value.trim(),kasirKey:$('fKasirKey').value.trim().toUpperCase(),syncUrl:$('fSyncUrl').value.trim(),syncKey:$('fSyncKey').value.trim()};
+  kasirCache={t:0,data:null}; if(vault.enabled()&&vault.K) await vault.store(); touch(); renderAll(); sheet.hidden=true;
+  if(S.kasirUrl&&S.kasirKey){ try{ await kasirPull(); hint.textContent='Server kasir terhubung.'; }catch(e){ hint.textContent='Server kasir: '+e.message; } }
+  if(S.syncUrl&&S.syncKey) pullSync();
+};
+function reqText(){ return (S.requests||[]).map((r,i)=>(i+1)+'. '+r.text+'  ('+new Date(r.t).toLocaleDateString('id-ID',{day:'numeric',month:'short'})+')').join('\n'); }
+function renderRequests(){ $('fRequests').value=reqText(); }
+$('copyReqBtn').onclick=async()=>{ const t=reqText(); const st=$('reqStatus'); if(!t){ st.textContent='Belum ada permintaan.'; return; } const msg='Usulan perubahan yang dicatat Nara (asisten Furqan):\n'+t; try{ await navigator.clipboard.writeText(msg); st.textContent='Tersalin. Tempel ke obrolan dengan Claude.'; st.className='status-line ok'; }catch(e){ $('fRequests').select(); st.textContent='Tekan ⌘C untuk menyalin teks yang sudah dipilih.'; } };
+$('clearReqBtn').onclick=()=>{ const b=$('clearReqBtn'); if(b.dataset.arm){ S.requests=[]; touch(); renderRequests(); delete b.dataset.arm; b.textContent='Kosongkan'; } else { b.dataset.arm='1'; b.textContent='Yakin? Tekan lagi'; } };
+$('clearBtn').onclick=()=>{ const b=$('clearBtn'); if(b.dataset.arm){ history=[]; touch(); renderAll(); sheet.hidden=true; delete b.dataset.arm; b.textContent='Hapus riwayat obrolan'; } else { b.dataset.arm='1'; b.textContent='Yakin? Tekan lagi untuk hapus'; } };
+
+// ---------- brankas & kunci (PIN + Face ID/Touch ID) ----------
+const VK='nara-vault';
+const enc=new TextEncoder(), dec=new TextDecoder();
+const b64=u=>btoa(String.fromCharCode(...new Uint8Array(u))), ub64=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
+async function pinKey(pin,salt){ const km=await crypto.subtle.importKey('raw',enc.encode(pin),'PBKDF2',false,['deriveKey']); return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:200000,hash:'SHA-256'},km,{name:'AES-GCM',length:256},false,['encrypt','decrypt']); }
+async function rawKey(bytes){ return crypto.subtle.importKey('raw',bytes,{name:'AES-GCM'},false,['encrypt','decrypt']); }
+async function sealWith(key,data){ const iv=crypto.getRandomValues(new Uint8Array(12)); const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},key,data); return {iv:b64(iv),ct:b64(ct)}; }
+async function openWith(key,box){ return new Uint8Array(await crypto.subtle.decrypt({name:'AES-GCM',iv:ub64(box.iv)},key,ub64(box.ct))); }
+// kunci perangkat (non-extractable) di IndexedDB: dipakai untuk jalur Face ID bila PRF tidak tersedia
+function idb(){ return new Promise((res,rej)=>{ const r=indexedDB.open('nara-keys',1); r.onupgradeneeded=()=>r.result.createObjectStore('k'); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
+async function deviceKey(create){ const db=await idb(); const get=()=>new Promise((res,rej)=>{ const t=db.transaction('k').objectStore('k').get('dev'); t.onsuccess=()=>res(t.result); t.onerror=()=>rej(t.error); });
+  let k=await get(); if(!k&&create){ k=await crypto.subtle.generateKey({name:'AES-GCM',length:256},false,['encrypt','decrypt']); await new Promise((res,rej)=>{ const t=db.transaction('k','readwrite').objectStore('k').put(k,'dev'); t.onsuccess=res; t.onerror=()=>rej(t.error); }); } return k||null; }
+const vault={
+  meta(){ try{ return JSON.parse(localStorage.getItem(VK)||'null'); }catch(e){ return null; } },
+  enabled(){ return !!this.meta(); },
+  K:null,
+  async create(pin){ // buat brankas baru dari rahasia yang sedang ada di S
+    const K=crypto.getRandomValues(new Uint8Array(32)); const salt=crypto.getRandomValues(new Uint8Array(16));
+    const byPin=await sealWith(await pinKey(pin,salt),K);
+    const dk=await deviceKey(true); const byDev=await sealWith(dk,K);
+    const m={v:1,salt:b64(salt),byPin,byDev,cred:null,prf:null,data:null}; this.K=K; localStorage.setItem(VK,JSON.stringify(m)); await this.store(); save(); },
+  async store(){ if(!this.K) return; const m=this.meta(); const payload=enc.encode(JSON.stringify({apiKey:S.apiKey||'',kasirKey:S.kasirKey||'',syncKey:S.syncKey||''})); m.data=await sealWith(await rawKey(this.K),payload); localStorage.setItem(VK,JSON.stringify(m)); },
+  async loadSecrets(){ const m=this.meta(); if(!m||!m.data||!this.K) return; try{ const o=JSON.parse(dec.decode(await openWith(await rawKey(this.K),m.data))); Object.assign(S,o); }catch(e){ console.warn('brankas gagal dibuka',e); } },
+  async unlockPin(pin){ const m=this.meta(); try{ this.K=await openWith(await pinKey(pin,ub64(m.salt)),m.byPin); await this.loadSecrets(); return true; }catch(e){ return false; } },
+  async unlockDevice(){ const m=this.meta(); const dk=await deviceKey(false); if(!dk||!m.byDev) return false; try{ this.K=await openWith(dk,m.byDev); await this.loadSecrets(); return true; }catch(e){ return false; } },
+  async unlockPrf(bytes){ const m=this.meta(); if(!m.prf) return false; try{ this.K=await openWith(await rawKey(bytes),m.prf); await this.loadSecrets(); return true; }catch(e){ return false; } },
+  lock(){ this.K=null; SECRETS.forEach(k=>S[k]=''); },
+  async disable(){ localStorage.removeItem(VK); this.K=null; save(); }
+};
+const WEBAUTHN=!!(window.PublicKeyCredential&&navigator.credentials&&navigator.credentials.create);
+const PRF_SALT=enc.encode('nara-vault-prf-v1');
+async function bioAvailable(){ try{ return WEBAUTHN&&await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable(); }catch(e){ return false; } }
+async function bioEnroll(){
+  const m=vault.meta(); if(!m||!vault.K) throw new Error('Buat PIN dulu.');
+  const cred=await navigator.credentials.create({publicKey:{challenge:crypto.getRandomValues(new Uint8Array(32)),rp:{name:'Nara'},user:{id:enc.encode('furqan-nara'),name:'furqan',displayName:'Furqan'},
+    pubKeyCredParams:[{type:'public-key',alg:-7},{type:'public-key',alg:-257}],authenticatorSelection:{authenticatorAttachment:'platform',userVerification:'required',residentKey:'preferred'},timeout:60000,extensions:{prf:{}}}});
+  m.cred=b64(cred.rawId); const ext=cred.getClientExtensionResults&&cred.getClientExtensionResults(); m.prfSupported=!!(ext&&ext.prf&&ext.prf.enabled); m.prf=null;
+  localStorage.setItem(VK,JSON.stringify(m));
+  if(m.prfSupported){ try{ const a=await navigator.credentials.get({publicKey:{challenge:crypto.getRandomValues(new Uint8Array(32)),allowCredentials:[{type:'public-key',id:ub64(m.cred)}],userVerification:'required',extensions:{prf:{eval:{first:PRF_SALT}}}}}); const r=a.getClientExtensionResults().prf; if(r&&r.results&&r.results.first){ m.prf=await sealWith(await rawKey(new Uint8Array(r.results.first)),vault.K); localStorage.setItem(VK,JSON.stringify(m)); } }catch(e){} }
+}
+async function bioUnlock(){
+  const m=vault.meta(); if(!m||!m.cred) return false;
+  const a=await navigator.credentials.get({publicKey:{challenge:crypto.getRandomValues(new Uint8Array(32)),allowCredentials:[{type:'public-key',id:ub64(m.cred)}],userVerification:'required',timeout:60000,extensions:m.prf?{prf:{eval:{first:PRF_SALT}}}:{}}});
+  if(!a) return false;
+  if(m.prf){ const r=a.getClientExtensionResults().prf; if(r&&r.results&&r.results.first&&await vault.unlockPrf(new Uint8Array(r.results.first))) return true; }
+  return vault.unlockDevice();   // Face ID lolos → buka dengan kunci perangkat
+}
+// --- UI kunci ---
+const lockEl=$('lock'), pinbox=$('pinbox'), lockErr=$('lockErr'), bioBtn=$('bioBtn');
+const isApple=/iPhone|iPad|Macintosh/.test(navigator.userAgent), isPhone=/iPhone|iPad/.test(navigator.userAgent);
+$('bioLabel').textContent=isPhone?'Buka dengan Face ID':'Buka dengan Touch ID';
+let pinBuf='', pinMode='unlock', pinFirst='', pinResolve=null, locked=false, lastActive=Date.now();
+function drawPin(){ [...pinbox.children].forEach((d,i)=>d.classList.toggle('f',i<pinBuf.length)); }
+function askPin(title,msg,mode){ return new Promise(res=>{ pinMode=mode; pinResolve=res; pinBuf=''; pinFirst=''; drawPin(); $('lockTitle').textContent=title; $('lockMsg').textContent=msg; lockErr.textContent=''; bioBtn.hidden=!(mode==='unlock'&&vault.meta()&&vault.meta().cred); $('padCancel').hidden=(mode==='unlock'); lockEl.hidden=false; }); }
+$('pad').addEventListener('click',async e=>{ const b=e.target.closest('button'); if(!b) return; if(b.id==='padDel'){ pinBuf=pinBuf.slice(0,-1); drawPin(); return; } if(b.id==='padCancel'){ lockEl.hidden=true; pinResolve&&pinResolve(null); return; }
+  if(pinBuf.length>=6) return; pinBuf+=b.dataset.d; drawPin(); if(pinBuf.length<6) return;
+  if(pinMode==='create'){ if(!pinFirst){ pinFirst=pinBuf; pinBuf=''; drawPin(); $('lockMsg').textContent='Ulangi PIN yang sama.'; return; } if(pinFirst!==pinBuf){ pinFirst=''; pinBuf=''; drawPin(); lockErr.textContent='PIN tidak sama, coba lagi.'; $('lockMsg').textContent='Masukkan 6 angka PIN baru.'; return; } lockEl.hidden=true; pinResolve(pinBuf); return; }
+  const ok=await vault.unlockPin(pinBuf); if(ok){ lockEl.hidden=true; onUnlocked(); } else { pinBuf=''; drawPin(); lockErr.textContent='PIN salah.'; } });
+bioBtn.onclick=async()=>{ lockErr.textContent=''; try{ if(await bioUnlock()){ lockEl.hidden=true; onUnlocked(); } else lockErr.textContent='Tidak bisa membuka. Pakai PIN.'; }catch(e){ lockErr.textContent='Face ID dibatalkan atau tidak tersedia. Pakai PIN.'; } };
+function lockNow(){ if(!vault.enabled()||locked) return; locked=true; if(typeof stopTalk==='function') stopTalk(); vault.lock(); sheet.hidden=true; askPin('Nara terkunci',(vault.meta().cred?'Buka dengan Face ID atau masukkan PIN.':'Masukkan PIN.'),'unlock'); if(vault.meta().cred&&isApple){ setTimeout(()=>bioBtn.click(),300); } }
+function onUnlocked(){ locked=false; lastActive=Date.now(); renderAll(); if(S.syncUrl&&S.syncKey) pullSync(); }
+['pointerdown','keydown','touchstart'].forEach(ev=>document.addEventListener(ev,()=>{ lastActive=Date.now(); },{passive:true}));
+setInterval(()=>{ if(vault.enabled()&&!locked&&Date.now()-lastActive>5*60*1000&&!busy&&!(typeof vm!=='undefined'&&vm)) lockNow(); },15000);
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='hidden'&&vault.enabled()&&!locked) { if(Date.now()-lastActive>5*60*1000) lockNow(); } });
+// --- pengaturan keamanan ---
+async function renderSec(){ const m=vault.meta(); const bio=await bioAvailable(); $('setPinBtn').textContent=m?'Ganti PIN':'Buat PIN'; $('bioEnrollBtn').hidden=!(m&&bio); $('bioEnrollBtn').textContent=(m&&m.cred)?'Daftarkan ulang Face ID / Touch ID':'Aktifkan Face ID / Touch ID'; $('lockOffBtn').hidden=!m;
+  $('secStatus').textContent=!m?'Belum dikunci. Siapa pun yang memegang perangkat ini bisa memakai Nara.':(m.cred?'Kunci aktif: Face ID / Touch ID + PIN.':'Kunci aktif: PIN. Aktifkan Face ID supaya lebih praktis.'); }
+$('setPinBtn').onclick=async()=>{ sheet.hidden=true; const pin=await askPin(vault.enabled()?'PIN baru':'Buat PIN','Masukkan 6 angka PIN baru.','create'); if(!pin){ sheet.hidden=false; return; }
+  if(vault.enabled()){ if(!vault.K){ sheet.hidden=false; return; } const m=vault.meta(); const salt=crypto.getRandomValues(new Uint8Array(16)); m.salt=b64(salt); m.byPin=await sealWith(await pinKey(pin,salt),vault.K); localStorage.setItem(VK,JSON.stringify(m)); }
+  else { await vault.create(pin); }
+  sheet.hidden=false; await renderSec(); hint.textContent='PIN tersimpan.';
+  if(await bioAvailable()&&!vault.meta().cred){ try{ await bioEnroll(); await renderSec(); hint.textContent='PIN dan Face ID aktif.'; }catch(e){ hint.textContent='PIN aktif. Face ID bisa diaktifkan nanti dari Pengaturan.'; } } };
+$('bioEnrollBtn').onclick=async()=>{ try{ await bioEnroll(); await renderSec(); hint.textContent='Face ID / Touch ID aktif.'; }catch(e){ hint.textContent='Gagal mengaktifkan: '+(e.message||e); } };
+$('lockOffBtn').onclick=async()=>{ const b=$('lockOffBtn'); if(b.dataset.arm){ await vault.disable(); delete b.dataset.arm; b.textContent='Matikan kunci'; await renderSec(); } else { b.dataset.arm='1'; b.textContent='Yakin? Tekan lagi'; } };
+
+// ---------- boot ----------
+load(); renderAll();
+(async()=>{ if(vault.enabled()){ lockNow(); } else pullSync(); })();
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') pullSync(); });
+window.addEventListener('online',()=>setStatus(S.apiKey?'Siap ngobrol':'API key belum diisi',!!S.apiKey));
+window.addEventListener('offline',()=>setStatus('Tidak ada internet',false));
+console.log('Nara v'+APP_VER);
+})();
+</script>
+</body>
+</html>

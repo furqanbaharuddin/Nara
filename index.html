@@ -236,6 +236,7 @@ textarea{flex:1;min-width:0;resize:none;border:1px solid var(--line);border-radi
     <div class="field"><label for="fVoice">Suara</label><select id="fVoice"></select><small>Kalau tidak ada suara Indonesia: iPhone → Pengaturan → Aksesibilitas → Konten Lisan → Suara → Indonesia. Mac → System Settings → Accessibility → Spoken Content.</small></div>
     <div class="field"><label for="fRate">Kecepatan bicara: <span id="rateVal">1.0</span></label><input id="fRate" type="range" min="0.7" max="1.4" step="0.05" value="1"></div>
     <div class="field"><label for="fPause">Jeda diam sebelum Nara menjawab: <span id="pauseVal">2.5</span> detik</label><input id="fPause" type="range" min="1" max="5" step="0.25" value="2.5"><small>Perbesar kalau Nara sering memotong; perkecil kalau terasa lambat menanggapi. Atau akhiri kalimat dengan "sudah" / "udah" / "selesai" supaya Nara langsung menjawab.</small></div>
+    <div class="row"><span>Potong dengan suara<small>Nara berhenti bicara begitu Anda mulai bicara. Nyalakan hanya saat memakai earphone; tanpa earphone dia akan mendengar suaranya sendiri.</small></span><button class="toggle" id="tBarge" role="switch" aria-checked="false" aria-label="Potong dengan suara"></button></div>
     <div class="row"><span>Bacakan jawaban di mode ketik</span><button class="toggle" id="tSpeak" role="switch" aria-checked="false" aria-label="Bacakan jawaban"></button></div>
 
     <h3>Keamanan</h3>
@@ -270,14 +271,14 @@ textarea{flex:1;min-width:0;resize:none;border:1px solid var(--line);border-radi
 <script>
 (function(){
 'use strict';
-const APP_VER='3.3.3';
+const APP_VER='3.4.0';
 const $=id=>document.getElementById(id);
 const col=$('col'), main=$('main'), input=$('input'), sendBtn=$('sendBtn'), hint=$('hint');
 
 const DEFAULTS={
   apiKey:'', modelQuick:'claude-haiku-5-5', modelFull:'claude-sonnet-5-5', quick:true,
   name:'Nara', persona:'Perempuan muda, ceria tapi tenang. Hangat, cerdas, dan jujur. Bicara seperti sahabat yang bisa diandalkan, bukan seperti robot. Panggil saya Furqan.',
-  notes:'', summary:'', voice:'', rate:1, speak:true, pause:2.5,
+  notes:'', summary:'', voice:'', rate:1, speak:true, pause:2.5, bargeIn:false,
   kasirUrl:'', kasirKey:'', syncUrl:'', syncKey:'', requests:[], updatedAt:0
 };
 let S={...DEFAULTS};
@@ -384,12 +385,12 @@ const tts={ queue:[], speaking:false, onIdle:null,
     let t=''; while(this.queue.length){ const n=this.queue[0]; if(t&&(t.length+n.length)>180) break; t+=(t?' ':'')+n; this.queue.shift(); } return t; },
   next(){ if(this.speaking||!this.queue.length) return; const t=this.take(); const u=new SpeechSynthesisUtterance(t); u.lang='id-ID'; const v=pickVoice(); if(v) u.voice=v; u.rate=S.rate||1;
     this.speaking=true; this._u=u; let ended=false; u.onstart=()=>face.setTalking(true);
-    const done=()=>{ if(ended) return; ended=true; clearTimeout(this._wd); this.speaking=false; if(this.queue.length) this.next(); else { face.setTalking(false); if(this.onIdle) this.onIdle(); } };
+    const done=()=>{ if(ended) return; ended=true; if(u._cancelled) return; clearTimeout(this._wd); this.speaking=false; if(this.queue.length) this.next(); else { face.setTalking(false); if(this.onIdle) this.onIdle(); } };
     u.onend=u.onerror=done;
     // pengaman: Safari/Chrome kadang tidak memanggil onend → anggap selesai setelah durasi wajar
     clearTimeout(this._wd); this._wd=setTimeout(()=>{ try{ synth.cancel(); }catch(e){} done(); }, 3000+Math.round(t.length*95/(S.rate||1)));
     synth.speak(u); },
-  stop(){ this.queue=[]; this.speaking=false; clearTimeout(this._wd); try{ synth&&synth.cancel(); }catch(e){} face.setTalking(false); },
+  stop(){ this.queue=[]; this.speaking=false; this.onIdle=null; clearTimeout(this._wd); if(this._u) this._u._cancelled=true; try{ synth&&synth.cancel(); }catch(e){} face.setTalking(false); },
   idle(){ return !this.speaking&&!this.queue.length; }
 };
 // sentence streamer: feeds TTS as text arrives
@@ -403,26 +404,28 @@ function makeSpeaker(enabled){
 // ---------- speech recognition ----------
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
 let rec=null, listening=false;
+let sessionId=0;
 function listen(onFinal,onInterim){
   if(!SR) return false;
   try{
-    rec=new SR(); rec.lang='id-ID'; rec.interimResults=true; rec.continuous=false; rec.maxAlternatives=1;
-    let finalText='', lastText='', silence=null, maxT=null;
-    const finish=()=>{ try{ rec.stop(); }catch(e){} setTimeout(()=>{ if(listening){ listening=false; onFinal((finalText||lastText).trim()||null,null); } },600); };
+    const me=++sessionId; const r=new SR(); rec=r; r.lang='id-ID'; r.interimResults=true; r.continuous=false; r.maxAlternatives=1;
+    let finalText='', lastText='', silence=null, maxT=null, closed=false;
+    const alive=()=>!closed&&me===sessionId;
+    const close=(text,err)=>{ if(closed) return; closed=true; clearTimeout(silence); clearTimeout(maxT); if(me===sessionId) listening=false; onFinal(text,err); };
+    const finish=()=>{ if(!alive()) return; try{ r.stop(); }catch(e){} setTimeout(()=>{ if(alive()) close((finalText||lastText).trim()||null,null); },600); };
     const END_RE=/[\s,]*(sudah|udah|selesai|cukup|sekian)\s*[.!?]*\s*$/i;
-    rec.onresult=e=>{ let s=''; for(const r of e.results){ s+=r[0].transcript; if(r.isFinal) finalText=s; } lastText=s; onInterim&&onInterim(s);
+    r.onresult=e=>{ if(!alive()) return; let s=''; for(const x of e.results){ s+=x[0].transcript; if(x.isFinal) finalText=s; } lastText=s; onInterim&&onInterim(s);
       clearTimeout(silence); if(!s.trim()) return;
       if(END_RE.test(s)&&s.trim().split(/\s+/).length>1){ const cut=s.replace(END_RE,'').trim(); finalText=cut||finalText; lastText=cut||lastText; finish(); return; }
       silence=setTimeout(finish,Math.round((Number(S.pause)||2.5)*1000)); };
-    maxT=setTimeout(()=>{ if(listening&&lastText.trim()) finish(); },45000);
-    let errored=false;
-    rec.onerror=e=>{ clearTimeout(silence); clearTimeout(maxT); errored=true; if(!listening) return; listening=false; onFinal(null,e.error||'error'); };
-    rec.onend=()=>{ clearTimeout(silence); clearTimeout(maxT); if(errored||!listening) return; listening=false; onFinal((finalText||lastText).trim()||null,null); };
-    rec.onaudiostart=()=>{ hint.textContent='Mikrofon aktif'; };
-    rec.start(); listening=true; return true;
+    maxT=setTimeout(()=>{ if(alive()&&lastText.trim()) finish(); },45000);
+    r.onerror=e=>{ if(!alive()) return; close(null,e.error||'error'); };
+    r.onend=()=>{ if(!alive()) return; close((finalText||lastText).trim()||null,null); };
+    r.onaudiostart=()=>{ if(alive()) hint.textContent='Mikrofon aktif'; };
+    r.start(); listening=true; return true;
   }catch(e){ listening=false; onFinal(null,'unavailable: '+(e.message||e)); return false; }
 }
-function stopListen(){ listening=false; try{ rec&&rec.abort(); }catch(e){} }
+function stopListen(){ sessionId++; listening=false; try{ rec&&rec.abort(); }catch(e){} }
 
 // ---------- kasir data ----------
 let kasirCache={t:0,data:null};
@@ -475,14 +478,15 @@ function sopSearch(topik,peran,maxChars){
 
 // ---------- tools for Claude ----------
 const TOOLS=[
-  { name:'atur_diri', description:'Ubah pengaturan Nara sendiri (bukan data studio). Field yang boleh: nama (string), kepribadian (string, mengganti seluruh deskripsi gaya bicara), kecepatan_bicara (0.7-1.4), jeda_detik (1-5; jeda diam sebelum menjawab), mode_cepat (true/false), bacakan_jawaban (true/false), suara (nama suara persis seperti di daftar), hapus_catatan (string: potongan teks catatan yang ingin dihapus), hapus_riwayat (true). Kirim hanya field yang ingin diubah. Panggil saat Furqan minta Nara mengubah cara bicaranya, namanya, kecepatan, jeda, atau mode.',
-    input_schema:{type:'object',properties:{nama:{type:'string'},kepribadian:{type:'string'},kecepatan_bicara:{type:'number'},jeda_detik:{type:'number'},mode_cepat:{type:'boolean'},bacakan_jawaban:{type:'boolean'},suara:{type:'string'},hapus_catatan:{type:'string'},hapus_riwayat:{type:'boolean'}}},
+  { name:'atur_diri', description:'Ubah pengaturan Nara sendiri (bukan data studio). Field yang boleh: nama (string), kepribadian (string, mengganti seluruh deskripsi gaya bicara), kecepatan_bicara (0.7-1.4), jeda_detik (1-5; jeda diam sebelum menjawab), mode_cepat (true/false), bacakan_jawaban (true/false), potong_dengan_suara (true/false), suara (nama suara persis seperti di daftar), hapus_catatan (string: potongan teks catatan yang ingin dihapus), hapus_riwayat (true). Kirim hanya field yang ingin diubah. Panggil saat Furqan minta Nara mengubah cara bicaranya, namanya, kecepatan, jeda, atau mode.',
+    input_schema:{type:'object',properties:{nama:{type:'string'},kepribadian:{type:'string'},kecepatan_bicara:{type:'number'},jeda_detik:{type:'number'},mode_cepat:{type:'boolean'},bacakan_jawaban:{type:'boolean'},potong_dengan_suara:{type:'boolean'},suara:{type:'string'},hapus_catatan:{type:'string'},hapus_riwayat:{type:'boolean'}}},
     run(inp){ const done=[];
       if(typeof inp.nama==='string'&&inp.nama.trim()){ S.name=inp.nama.trim().slice(0,30); done.push('nama → '+S.name); }
       if(typeof inp.kepribadian==='string'&&inp.kepribadian.trim()){ S.persona=inp.kepribadian.trim().slice(0,600); done.push('kepribadian diperbarui'); }
       if(typeof inp.kecepatan_bicara==='number'){ S.rate=Math.min(1.4,Math.max(.7,inp.kecepatan_bicara)); done.push('kecepatan bicara → '+S.rate); }
       if(typeof inp.jeda_detik==='number'){ S.pause=Math.min(5,Math.max(1,inp.jeda_detik)); done.push('jeda → '+S.pause+' detik'); }
       if(typeof inp.mode_cepat==='boolean'){ S.quick=inp.mode_cepat; done.push('mode cepat → '+(S.quick?'aktif':'nonaktif')); }
+      if(typeof inp.potong_dengan_suara==='boolean'){ S.bargeIn=inp.potong_dengan_suara; done.push('potong dengan suara → '+(S.bargeIn?'aktif':'nonaktif')); }
       if(typeof inp.bacakan_jawaban==='boolean'){ S.speak=inp.bacakan_jawaban; done.push('bacakan jawaban → '+(S.speak?'aktif':'nonaktif')); }
       if(typeof inp.suara==='string'&&inp.suara.trim()){ const v=voices.find(v=>v.name.toLowerCase().includes(inp.suara.toLowerCase())); if(v){ S.voice=v.name; done.push('suara → '+v.name); } else return 'Error: suara "'+inp.suara+'" tidak ada. Pilihan: '+voices.filter(v=>/^id/i.test(v.lang)).map(v=>v.name).join(', '); }
       if(typeof inp.hapus_catatan==='string'&&inp.hapus_catatan.trim()){ const before=(S.notes||'').split('\n'); const after=before.filter(l=>!l.toLowerCase().includes(inp.hapus_catatan.toLowerCase())); if(after.length===before.length) return 'Error: tidak ada catatan yang cocok dengan "'+inp.hapus_catatan+'"'; S.notes=after.join('\n'); done.push('catatan dihapus: '+(before.length-after.length)); }
@@ -641,23 +645,24 @@ const ring=$('ring'), vState=$('vState'), vYou=$('vYou'), vHer=$('vHer'), talkBt
 let vm=false, vFails=0, vGuard=null;
 const ERR_ID={'not-allowed':'Izin mikrofon ditolak. Safari → Pengaturan → Situs Web → Mikrofon → izinkan untuk situs ini.','service-not-allowed':'Layanan pengenal suara tidak diizinkan. Mac: System Settings → Keyboard → Dictation → nyalakan. iPhone: Pengaturan → Umum → Keyboard → Aktifkan Dikte.','audio-capture':'Mikrofon tidak ditemukan. Cek Pengaturan Sistem → Suara → Input.','network':'Pengenal suara butuh internet dan gagal menghubungi layanannya.','language-not-supported':'Bahasa Indonesia tidak tersedia di pengenal suara browser ini.','no-speech':'Tidak ada suara yang terdengar.','aborted':''};
 function vSet(txt,live){ vState.textContent=txt; vState.classList.toggle('live',!!live); face.listening(txt==='Mendengarkan…'); }
-function vListen(){
-  if(!vm||busy) return;
-  face.set('mendengar'); vSet('Mendengarkan…',true);
+function vListen(quiet){
+  if(!vm||listening) return; if(busy&&!quiet) return;
+  if(!quiet){ face.set('mendengar'); vSet('Mendengarkan…',true); }
   const ok=listen(async(text,err)=>{
     if(!vm) return;
     if(err&&err!=='no-speech'&&err!=='aborted'){ vFails++; hint.textContent='Mikrofon: '+err; if(vFails>=3||err==='not-allowed'||err==='service-not-allowed'||err==='audio-capture'){ stopTalk(); vSet(ERR_ID[err]||('Mikrofon gagal: '+err)); face.set('sedih'); return; } }
-    if(!text){ if(vm) setTimeout(vListen,400); return; }
-    vFails=0;
+    if(!text){ if(vm){ if(!tts.idle()||busy){ if(S.bargeIn) setTimeout(()=>vListen(true),300); } else setTimeout(vListen,400); } return; }
+    vFails=0; if(!tts.idle()||busy){ tts.stop(); if(abortCtl) abortCtl.abort(); }
     vYou.textContent='“'+text+'”'; vHer.textContent=''; vSet('Berpikir…');
     const ans=await send(text,{speak:true,onSearch:()=>vSet('Mencari di internet…',true),onText:t=>{ vHer.textContent=t; vHer.scrollTop=vHer.scrollHeight; }});
     if(!vm) return;
     if(!ans){ vSet(lastError||'Ada masalah. Ketuk wajah untuk coba lagi.'); vHer.textContent='Ketuk wajah untuk coba lagi, atau buka ikon keyboard untuk melihat detailnya.'; return; }
     vSet('Berbicara…',true);
-    tts.onIdle=()=>{ tts.onIdle=null; clearTimeout(vGuard); if(vm) setTimeout(vListen,350); };
+    tts.onIdle=()=>{ tts.onIdle=null; clearTimeout(vGuard); if(!vm) return; if(listening){ face.set('mendengar'); vSet('Mendengarkan…',true); } else setTimeout(()=>vListen(false),350); };
+    if(S.bargeIn&&SR&&!tts.idle()) setTimeout(()=>vListen(true),250);
     clearTimeout(vGuard); vGuard=setTimeout(()=>{ if(vm&&!busy&&!listening){ tts.stop(); vListen(); } },45000);
     if(tts.idle()) tts.onIdle();
-  }, s=>{ if(s){ vYou.textContent=s; face.heard(); } });
+  }, s=>{ if(s){ vYou.textContent=s; face.heard(); if(quiet&&s.trim().split(/\s+/).length>=2&&(!tts.idle()||busy)){ tts.stop(); if(abortCtl) abortCtl.abort(); face.set('mendengar'); vSet('Mendengarkan…',true); } } });
   if(!ok){ stopTalk(); vSet('Pengenal suara tidak tersedia di browser ini. Pakai Safari, atau ketik lewat tombol keyboard.'); }
 }
 function startTalk(){
@@ -688,13 +693,13 @@ const sheet=$('sheet');
 function openSheet(){
   $('fApiKey').value=S.apiKey; $('fModelQuick').value=S.modelQuick; $('fModelFull').value=S.modelFull; $('tQuick').setAttribute('aria-checked',String(!!S.quick));
   $('fName').value=S.name; $('fPersona').value=S.persona; $('fNotes').value=S.notes; $('fSummary').value=S.summary; renderRequests(); $('verLine').textContent='Nara v'+APP_VER;
-  loadVoices(); $('fRate').value=S.rate; $('rateVal').textContent=Number(S.rate).toFixed(2); $('fPause').value=S.pause||2.5; $('pauseVal').textContent=Number(S.pause||2.5).toFixed(2).replace(/\.?0+$/,''); $('tSpeak').setAttribute('aria-checked',String(!!S.speak));
+  loadVoices(); $('fRate').value=S.rate; $('rateVal').textContent=Number(S.rate).toFixed(2); $('fPause').value=S.pause||2.5; $('pauseVal').textContent=Number(S.pause||2.5).toFixed(2).replace(/\.?0+$/,''); $('tSpeak').setAttribute('aria-checked',String(!!S.speak)); $('tBarge').setAttribute('aria-checked',String(!!S.bargeIn));
   $('fKasirUrl').value=S.kasirUrl; $('fKasirKey').value=S.kasirKey; $('fSyncUrl').value=S.syncUrl; $('fSyncKey').value=S.syncKey;
   $('apiStatus').textContent=''; $('kasirStatus').textContent=''; renderSec(); sheet.hidden=false;
 }
 $('settingsBtn').onclick=openSheet; $('cancelBtn').onclick=()=>sheet.hidden=true;
 sheet.addEventListener('click',e=>{ if(e.target===sheet) sheet.hidden=true; });
-['tQuick','tSpeak'].forEach(id=>{ const b=$(id); b.onclick=()=>b.setAttribute('aria-checked',String(b.getAttribute('aria-checked')!=='true')); });
+['tQuick','tSpeak','tBarge'].forEach(id=>{ const b=$(id); b.onclick=()=>b.setAttribute('aria-checked',String(b.getAttribute('aria-checked')!=='true')); });
 $('fRate').oninput=()=>{ $('rateVal').textContent=Number($('fRate').value).toFixed(2); };
 $('fPause').oninput=()=>{ $('pauseVal').textContent=Number($('fPause').value).toFixed(2).replace(/\.?0+$/,''); };
 function cleanKey(v){ return String(v||'').replace(/[‐-―]/g,'-').replace(/[^\x21-\x7e]/g,''); }
@@ -716,7 +721,7 @@ $('fVoice').onchange=()=>{ const prev=S.voice; S.voice=$('fVoice').value; tts.sa
 $('saveBtn').onclick=async()=>{
   S={...S,apiKey:cleanKey($('fApiKey').value),modelQuick:$('fModelQuick').value.trim()||DEFAULTS.modelQuick,modelFull:$('fModelFull').value.trim()||DEFAULTS.modelFull,quick:$('tQuick').getAttribute('aria-checked')==='true',
     name:$('fName').value.trim()||DEFAULTS.name,persona:$('fPersona').value.trim()||DEFAULTS.persona,notes:$('fNotes').value.trim(),summary:$('fSummary').value.trim(),
-    voice:$('fVoice').value,rate:Number($('fRate').value)||1,pause:Number($('fPause').value)||2.5,speak:$('tSpeak').getAttribute('aria-checked')==='true',
+    voice:$('fVoice').value,rate:Number($('fRate').value)||1,pause:Number($('fPause').value)||2.5,speak:$('tSpeak').getAttribute('aria-checked')==='true',bargeIn:$('tBarge').getAttribute('aria-checked')==='true',
     kasirUrl:$('fKasirUrl').value.trim(),kasirKey:$('fKasirKey').value.trim().toUpperCase(),syncUrl:$('fSyncUrl').value.trim(),syncKey:$('fSyncKey').value.trim()};
   kasirCache={t:0,data:null}; if(vault.enabled()&&vault.K) await vault.store(); touch(); renderAll(); sheet.hidden=true;
   if(S.kasirUrl&&S.kasirKey){ try{ await kasirPull(); hint.textContent='Server kasir terhubung.'; }catch(e){ hint.textContent='Server kasir: '+e.message; } }
