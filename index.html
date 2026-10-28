@@ -33,7 +33,8 @@ button:focus-visible,textarea:focus-visible,input:focus-visible,select:focus-vis
 .iconbtn[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 
 /* ---- Layar utama: wajah ---- */
-.home{height:100%;display:grid;grid-template-rows:auto 1fr auto auto;padding:10px 16px 18px;gap:8px}
+.home{height:100%;width:100%;max-width:100vw;display:grid;grid-template-rows:auto 1fr auto auto;padding:10px 16px 18px;gap:8px;overflow:hidden}
+.home>*{min-width:0;max-width:100%}
 .top{display:flex;align-items:center;gap:10px}
 .top .who{flex:1;min-width:0}
 .top h1{margin:0;font:600 20px/1.2 var(--display);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -41,7 +42,8 @@ button:focus-visible,textarea:focus-visible,input:focus-visible,select:focus-vis
 .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);display:inline-block;flex:none}
 .dot.off{background:var(--muted)}
 .facewrap{display:grid;place-items:center;min-height:0}
-.ring{position:relative;display:grid;place-items:center;width:100%;max-width:720px;height:min(46vh,420px)}
+.facewrap{min-width:0;width:100%}
+.ring{position:relative;display:grid;place-items:center;width:100%;max-width:min(720px,100%);height:min(46vh,420px);min-width:0;overflow:hidden}
 .ring::before{content:"";position:absolute;inset:-5%;border-radius:50%;border:3px solid var(--accent);opacity:0;transition:opacity .3s;pointer-events:none}
 .ring.listening::before{opacity:.8;animation:ring 1.6s ease-out infinite}
 @keyframes ring{0%{transform:scale(.94);opacity:.8}100%{transform:scale(1.1);opacity:0}}
@@ -49,12 +51,12 @@ button:focus-visible,textarea:focus-visible,input:focus-visible,select:focus-vis
 .face-float{animation:float 4s ease-in-out infinite}
 @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-1.5px)}}
 @media (prefers-reduced-motion:reduce){.face-float{animation:none}}
-.wave{width:100%;height:100%;display:block;cursor:pointer}
+.wave{width:100%;height:100%;max-width:100%;display:block;cursor:pointer}
 .state{text-align:center;font:600 13px var(--body);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);min-height:18px}
 .state.live{color:var(--accent)}
-.transcript{text-align:center;display:flex;flex-direction:column;gap:6px;max-width:560px;margin:0 auto;width:100%;min-height:0}
+.transcript{text-align:center;display:flex;flex-direction:column;gap:6px;max-width:560px;margin:0 auto;width:100%;min-height:0;min-width:0;overflow-wrap:anywhere}
 .transcript .you{color:var(--muted);font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.transcript .her{font:500 17px/1.45 var(--display);text-wrap:balance;max-height:22vh;overflow-y:auto}
+.transcript .her{font:500 17px/1.45 var(--display);text-wrap:balance;max-height:22vh;overflow-y:auto;overflow-wrap:anywhere}
 .ctrls{display:flex;align-items:center;justify-content:center;gap:16px;padding-top:6px}
 .talk{width:84px;height:84px;border-radius:50%;border:none;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;box-shadow:0 8px 24px color-mix(in srgb,var(--accent) 35%,transparent)}
 .talk.on{background:var(--danger);color:#fff}
@@ -268,7 +270,7 @@ textarea{flex:1;min-width:0;resize:none;border:1px solid var(--line);border-radi
 <script>
 (function(){
 'use strict';
-const APP_VER='3.3.2';
+const APP_VER='3.3.3';
 const $=id=>document.getElementById(id);
 const col=$('col'), main=$('main'), input=$('input'), sendBtn=$('sendBtn'), hint=$('hint');
 
