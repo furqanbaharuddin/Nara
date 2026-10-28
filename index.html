@@ -222,6 +222,12 @@ textarea{flex:1;min-width:0;resize:none;border:1px solid var(--line);border-radi
     <div class="field"><label for="fRate">Kecepatan bicara: <span id="rateVal">1.0</span></label><input id="fRate" type="range" min="0.7" max="1.4" step="0.05" value="1"></div>
     <div class="row"><span>Bacakan jawaban di mode ketik</span><button class="toggle" id="tSpeak" role="switch" aria-checked="false" aria-label="Bacakan jawaban"></button></div>
 
+    <h3>Permintaan fitur untuk Claude</h3>
+    <p class="sub">Bilang ke Nara: "catat permintaan: …" dan dia menyimpannya di sini. Tekan Salin, lalu tempel ke obrolan dengan Claude supaya dibuatkan.</p>
+    <div class="field"><textarea id="fRequests" readonly placeholder="Belum ada permintaan."></textarea></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="copyReqBtn" type="button">Salin semua permintaan</button><button class="btn danger" id="clearReqBtn" type="button">Kosongkan</button></div>
+    <div class="status-line" id="reqStatus"></div>
+
     <h3>Data studio (server kasir)</h3>
     <div class="field"><label for="fKasirUrl">URL server kasir (…/exec)</label><input id="fKasirUrl" placeholder="https://script.google.com/macros/s/…/exec"></div>
     <div class="field"><label for="fKasirKey">Kunci API kasir</label><input id="fKasirKey" type="password" autocomplete="off"></div>
@@ -236,13 +242,14 @@ textarea{flex:1;min-width:0;resize:none;border:1px solid var(--line);border-radi
       <button class="btn danger" id="clearBtn">Hapus riwayat obrolan</button>
       <div style="display:flex;gap:8px"><button class="btn" id="cancelBtn">Batal</button><button class="btn primary" id="saveBtn">Simpan</button></div>
     </div>
+    <p class="sub" style="margin-top:14px;text-align:center" id="verLine"></p>
   </div>
 </div>
 
 <script>
 (function(){
 'use strict';
-const APP_VER='1.2.1';
+const APP_VER='1.3.0';
 const $=id=>document.getElementById(id);
 const col=$('col'), main=$('main'), input=$('input'), sendBtn=$('sendBtn'), hint=$('hint');
 
@@ -250,7 +257,7 @@ const DEFAULTS={
   apiKey:'', modelQuick:'claude-haiku-5-5', modelFull:'claude-sonnet-5-5', quick:true,
   name:'Nara', persona:'Hangat, santai, cerdas, dan jujur. Bicara seperti teman dekat yang bisa diandalkan, bukan seperti robot. Panggil saya Furqan.',
   notes:'', summary:'', voice:'', rate:1, speak:true,
-  kasirUrl:'', kasirKey:'', syncUrl:'', syncKey:'', updatedAt:0
+  kasirUrl:'', kasirKey:'', syncUrl:'', syncKey:'', requests:[], updatedAt:0
 };
 let S={...DEFAULTS};
 let history=[];   // {role:'user'|'assistant', content, t}
@@ -409,6 +416,9 @@ function ringkasKasir(j,dari,sampai,cabang,detail){
 
 // ---------- tools for Claude ----------
 const TOOLS=[
+  { name:'catat_permintaan', description:'Catat permintaan fitur/perubahan untuk aplikasi Nara ini agar nanti dibuatkan oleh Claude (pembuatnya). Panggil saat Furqan minta Nara punya kemampuan baru atau ingin sesuatu di aplikasi diubah. Jangan janjikan fitur itu langsung ada.',
+    input_schema:{type:'object',properties:{permintaan:{type:'string',description:'Permintaan dalam satu-dua kalimat jelas, dengan kata-kata Furqan'}},required:['permintaan']},
+    run(inp){ const p=String(inp.permintaan||'').trim(); if(!p) return 'Error: kosong'; S.requests=(S.requests||[]).concat([{t:Date.now(),text:p}]); touch(); return 'ok, tercatat (total '+S.requests.length+')'; } },
   { name:'simpan_catatan', description:'Simpan satu catatan singkat ke ingatan jangka panjang asisten (dibaca lagi di setiap percakapan). Panggil hanya saat Furqan minta mengingat/mencatat sesuatu.',
     input_schema:{type:'object',properties:{catatan:{type:'string',description:'Satu kalimat singkat'}},required:['catatan']},
     run(inp){ const c=String(inp.catatan||'').trim(); if(!c) return 'Error: kosong'; S.notes=(S.notes?S.notes+'\n':'')+'- '+c; touch(); return 'ok, tersimpan'; } },
@@ -437,6 +447,7 @@ Aturan menjawab:
 - Untuk pertanyaan angka bisnis (pemasukan, omzet, kas, belum lunas, booking) WAJIB panggil tool data_kasir dulu, lalu jawab dari datanya. Kalau tool gagal, bilang apa adanya.
 - Kamu punya akses internet lewat tool web_search. Pakai untuk hal yang butuh info terkini atau yang tidak kamu yakini: berita, cuaca, harga, jadwal, alamat, tren, fakta terbaru. Untuk obrolan biasa tidak perlu mencari. Setelah mencari, jawab dengan ringkas seperti bicara; jangan membacakan daftar link atau sumber, cukup sebut nama sumbernya kalau penting.
 - Kalau Furqan minta mengingat/mencatat sesuatu, panggil simpan_catatan lalu konfirmasi singkat.
+- Kalau Furqan ingin KAMU punya fitur baru atau aplikasi ini diubah (misalnya "Nara, bisa nggak kamu…", "tambahkan fitur…", "catat permintaan…"), panggil catat_permintaan, lalu bilang singkat bahwa permintaan sudah dicatat dan akan dibuatkan Claude; jangan pura-pura fiturnya sudah ada.
 - Kalau tidak tahu, bilang tidak tahu. Jangan mengarang.`;
 }
 
@@ -584,7 +595,7 @@ $('chatClose').onclick=closeChat;
 const sheet=$('sheet');
 function openSheet(){
   $('fApiKey').value=S.apiKey; $('fModelQuick').value=S.modelQuick; $('fModelFull').value=S.modelFull; $('tQuick').setAttribute('aria-checked',String(!!S.quick));
-  $('fName').value=S.name; $('fPersona').value=S.persona; $('fNotes').value=S.notes; $('fSummary').value=S.summary;
+  $('fName').value=S.name; $('fPersona').value=S.persona; $('fNotes').value=S.notes; $('fSummary').value=S.summary; renderRequests(); $('verLine').textContent='Nara v'+APP_VER;
   loadVoices(); $('fRate').value=S.rate; $('rateVal').textContent=Number(S.rate).toFixed(2); $('tSpeak').setAttribute('aria-checked',String(!!S.speak));
   $('fKasirUrl').value=S.kasirUrl; $('fKasirKey').value=S.kasirKey; $('fSyncUrl').value=S.syncUrl; $('fSyncKey').value=S.syncKey;
   $('apiStatus').textContent=''; $('kasirStatus').textContent=''; sheet.hidden=false;
@@ -618,6 +629,10 @@ $('saveBtn').onclick=async()=>{
   if(S.kasirUrl&&S.kasirKey){ try{ await kasirPull(); hint.textContent='Server kasir terhubung.'; }catch(e){ hint.textContent='Server kasir: '+e.message; } }
   if(S.syncUrl&&S.syncKey) pullSync();
 };
+function reqText(){ return (S.requests||[]).map((r,i)=>(i+1)+'. '+r.text+'  ('+new Date(r.t).toLocaleDateString('id-ID',{day:'numeric',month:'short'})+')').join('\n'); }
+function renderRequests(){ $('fRequests').value=reqText(); }
+$('copyReqBtn').onclick=async()=>{ const t=reqText(); const st=$('reqStatus'); if(!t){ st.textContent='Belum ada permintaan.'; return; } const msg='Permintaan fitur dari Nara (aplikasi asisten Furqan):\n'+t; try{ await navigator.clipboard.writeText(msg); st.textContent='Tersalin. Tempel ke obrolan dengan Claude.'; st.className='status-line ok'; }catch(e){ $('fRequests').select(); st.textContent='Tekan ⌘C untuk menyalin teks yang sudah dipilih.'; } };
+$('clearReqBtn').onclick=()=>{ const b=$('clearReqBtn'); if(b.dataset.arm){ S.requests=[]; touch(); renderRequests(); delete b.dataset.arm; b.textContent='Kosongkan'; } else { b.dataset.arm='1'; b.textContent='Yakin? Tekan lagi'; } };
 $('clearBtn').onclick=()=>{ const b=$('clearBtn'); if(b.dataset.arm){ history=[]; touch(); renderAll(); sheet.hidden=true; delete b.dataset.arm; b.textContent='Hapus riwayat obrolan'; } else { b.dataset.arm='1'; b.textContent='Yakin? Tekan lagi untuk hapus'; } };
 
 // ---------- boot ----------
