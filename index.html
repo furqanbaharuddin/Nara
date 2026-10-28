@@ -109,6 +109,18 @@ textarea{flex:1;min-width:0;resize:none;border:1px solid var(--line);border-radi
 .btn.danger{color:var(--danger)}
 .status-line{font-size:12.5px;color:var(--muted);margin-top:4px}
 .ok{color:var(--accent)} .err{color:var(--danger)}
+/* ---- Layar kunci ---- */
+.lock{position:fixed;inset:0;z-index:60;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:24px 20px calc(24px + env(safe-area-inset-bottom,0px))}
+.lock h2{margin:0;font:600 24px var(--display)}
+.lock p{margin:0;color:var(--muted);font-size:14px;text-align:center;max-width:320px;text-wrap:balance}
+.lock .bio{background:var(--accent);color:var(--accent-ink);border:none;border-radius:999px;padding:14px 26px;font-weight:700;font-size:16px;display:flex;align-items:center;gap:10px}
+.pinbox{display:flex;gap:12px;margin:6px 0}
+.pinbox i{width:14px;height:14px;border-radius:50%;border:2px solid var(--accent);display:block}
+.pinbox i.f{background:var(--accent)}
+.pad{display:grid;grid-template-columns:repeat(3,72px);gap:10px}
+.pad button{height:60px;border-radius:16px;border:1px solid var(--line);background:var(--panel);color:var(--fg);font-size:22px;font-weight:600}
+.pad button.ghost{border:none;background:none;font-size:14px;font-weight:600;color:var(--muted)}
+.lock .err{min-height:18px;font-size:13px}
 </style>
 </head>
 <body>
@@ -183,6 +195,21 @@ textarea{flex:1;min-width:0;resize:none;border:1px solid var(--line);border-radi
   </footer>
 </div>
 
+<!-- Layar kunci -->
+<div class="lock" id="lock" hidden>
+  <h2 id="lockTitle">Nara terkunci</h2>
+  <p id="lockMsg">Buka dengan Face ID atau masukkan PIN.</p>
+  <button class="bio" id="bioBtn" hidden><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9V6a3 3 0 0 1 3-3h3M15 3h3a3 3 0 0 1 3 3v3M21 15v3a3 3 0 0 1-3 3h-3M9 21H6a3 3 0 0 1-3-3v-3"/><path d="M8 9.5v1M16 9.5v1M9.5 15a3.5 3.5 0 0 0 5 0M12 9v4h-1"/></svg><span id="bioLabel">Buka dengan Face ID</span></button>
+  <div class="pinbox" id="pinbox"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+  <div class="pad" id="pad">
+    <button data-d="1">1</button><button data-d="2">2</button><button data-d="3">3</button>
+    <button data-d="4">4</button><button data-d="5">5</button><button data-d="6">6</button>
+    <button data-d="7">7</button><button data-d="8">8</button><button data-d="9">9</button>
+    <button class="ghost" id="padCancel">Batal</button><button data-d="0">0</button><button class="ghost" id="padDel">⌫</button>
+  </div>
+  <div class="err" id="lockErr"></div>
+</div>
+
 <!-- Settings -->
 <div class="sheet" id="sheet" hidden>
   <div class="card">
@@ -207,6 +234,11 @@ textarea{flex:1;min-width:0;resize:none;border:1px solid var(--line);border-radi
     <div class="field"><label for="fVoice">Suara</label><select id="fVoice"></select><small>Kalau tidak ada suara Indonesia: iPhone → Pengaturan → Aksesibilitas → Konten Lisan → Suara → Indonesia. Mac → System Settings → Accessibility → Spoken Content.</small></div>
     <div class="field"><label for="fRate">Kecepatan bicara: <span id="rateVal">1.0</span></label><input id="fRate" type="range" min="0.7" max="1.4" step="0.05" value="1"></div>
     <div class="row"><span>Bacakan jawaban di mode ketik</span><button class="toggle" id="tSpeak" role="switch" aria-checked="false" aria-label="Bacakan jawaban"></button></div>
+
+    <h3>Keamanan</h3>
+    <p class="sub" id="secStatus">Belum dikunci. Siapa pun yang memegang perangkat ini bisa memakai Nara.</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" id="setPinBtn" type="button">Buat PIN</button><button class="btn" id="bioEnrollBtn" type="button" hidden>Aktifkan Face ID / Touch ID</button><button class="btn danger" id="lockOffBtn" type="button" hidden>Matikan kunci</button></div>
+    <p class="sub" style="margin-top:8px">Dengan kunci aktif, API key dan kunci kasir disimpan terenkripsi dan hanya terbuka lewat Face ID atau PIN. Nara mengunci sendiri setelah 5 menit tidak dipakai.</p>
 
     <h3>Permintaan fitur untuk Claude</h3>
     <p class="sub">Bilang ke Nara: "catat permintaan: …" dan dia menyimpannya di sini. Tekan Salin, lalu tempel ke obrolan dengan Claude supaya dibuatkan.</p>
@@ -235,7 +267,7 @@ textarea{flex:1;min-width:0;resize:none;border:1px solid var(--line);border-radi
 <script>
 (function(){
 'use strict';
-const APP_VER='3.0.0';
+const APP_VER='3.1.0';
 const $=id=>document.getElementById(id);
 const col=$('col'), main=$('main'), input=$('input'), sendBtn=$('sendBtn'), hint=$('hint');
 
@@ -252,7 +284,8 @@ let busy=false, abortCtl=null, lastError='', webSearchOk=true;
 // ---------- storage ----------
 const LS='nara-v1';
 function load(){ try{ const j=JSON.parse(localStorage.getItem(LS)||'{}'); if(j.S) S={...DEFAULTS,...j.S}; if(Array.isArray(j.history)) history=j.history; }catch(e){} }
-function save(){ try{ localStorage.setItem(LS,JSON.stringify({S,history})); }catch(e){} }
+const SECRETS=['apiKey','kasirKey','syncKey'];
+function save(){ try{ const out={...S}; if(vault.enabled()){ SECRETS.forEach(k=>delete out[k]); } localStorage.setItem(LS,JSON.stringify({S:out,history})); }catch(e){} }
 function touch(){ S.updatedAt=Date.now(); save(); scheduleSync(); }
 
 // ---------- sync (Google Sheet via Asisten.gs) ----------
@@ -598,7 +631,7 @@ function openSheet(){
   $('fName').value=S.name; $('fPersona').value=S.persona; $('fNotes').value=S.notes; $('fSummary').value=S.summary; renderRequests(); $('verLine').textContent='Nara v'+APP_VER;
   loadVoices(); $('fRate').value=S.rate; $('rateVal').textContent=Number(S.rate).toFixed(2); $('tSpeak').setAttribute('aria-checked',String(!!S.speak));
   $('fKasirUrl').value=S.kasirUrl; $('fKasirKey').value=S.kasirKey; $('fSyncUrl').value=S.syncUrl; $('fSyncKey').value=S.syncKey;
-  $('apiStatus').textContent=''; $('kasirStatus').textContent=''; sheet.hidden=false;
+  $('apiStatus').textContent=''; $('kasirStatus').textContent=''; renderSec(); sheet.hidden=false;
 }
 $('settingsBtn').onclick=openSheet; $('cancelBtn').onclick=()=>sheet.hidden=true;
 sheet.addEventListener('click',e=>{ if(e.target===sheet) sheet.hidden=true; });
@@ -625,7 +658,7 @@ $('saveBtn').onclick=async()=>{
     name:$('fName').value.trim()||DEFAULTS.name,persona:$('fPersona').value.trim()||DEFAULTS.persona,notes:$('fNotes').value.trim(),summary:$('fSummary').value.trim(),
     voice:$('fVoice').value,rate:Number($('fRate').value)||1,speak:$('tSpeak').getAttribute('aria-checked')==='true',
     kasirUrl:$('fKasirUrl').value.trim(),kasirKey:$('fKasirKey').value.trim().toUpperCase(),syncUrl:$('fSyncUrl').value.trim(),syncKey:$('fSyncKey').value.trim()};
-  kasirCache={t:0,data:null}; touch(); renderAll(); sheet.hidden=true;
+  kasirCache={t:0,data:null}; if(vault.enabled()&&vault.K) await vault.store(); touch(); renderAll(); sheet.hidden=true;
   if(S.kasirUrl&&S.kasirKey){ try{ await kasirPull(); hint.textContent='Server kasir terhubung.'; }catch(e){ hint.textContent='Server kasir: '+e.message; } }
   if(S.syncUrl&&S.syncKey) pullSync();
 };
@@ -635,8 +668,84 @@ $('copyReqBtn').onclick=async()=>{ const t=reqText(); const st=$('reqStatus'); i
 $('clearReqBtn').onclick=()=>{ const b=$('clearReqBtn'); if(b.dataset.arm){ S.requests=[]; touch(); renderRequests(); delete b.dataset.arm; b.textContent='Kosongkan'; } else { b.dataset.arm='1'; b.textContent='Yakin? Tekan lagi'; } };
 $('clearBtn').onclick=()=>{ const b=$('clearBtn'); if(b.dataset.arm){ history=[]; touch(); renderAll(); sheet.hidden=true; delete b.dataset.arm; b.textContent='Hapus riwayat obrolan'; } else { b.dataset.arm='1'; b.textContent='Yakin? Tekan lagi untuk hapus'; } };
 
+// ---------- brankas & kunci (PIN + Face ID/Touch ID) ----------
+const VK='nara-vault';
+const enc=new TextEncoder(), dec=new TextDecoder();
+const b64=u=>btoa(String.fromCharCode(...new Uint8Array(u))), ub64=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
+async function pinKey(pin,salt){ const km=await crypto.subtle.importKey('raw',enc.encode(pin),'PBKDF2',false,['deriveKey']); return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:200000,hash:'SHA-256'},km,{name:'AES-GCM',length:256},false,['encrypt','decrypt']); }
+async function rawKey(bytes){ return crypto.subtle.importKey('raw',bytes,{name:'AES-GCM'},false,['encrypt','decrypt']); }
+async function sealWith(key,data){ const iv=crypto.getRandomValues(new Uint8Array(12)); const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},key,data); return {iv:b64(iv),ct:b64(ct)}; }
+async function openWith(key,box){ return new Uint8Array(await crypto.subtle.decrypt({name:'AES-GCM',iv:ub64(box.iv)},key,ub64(box.ct))); }
+// kunci perangkat (non-extractable) di IndexedDB: dipakai untuk jalur Face ID bila PRF tidak tersedia
+function idb(){ return new Promise((res,rej)=>{ const r=indexedDB.open('nara-keys',1); r.onupgradeneeded=()=>r.result.createObjectStore('k'); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
+async function deviceKey(create){ const db=await idb(); const get=()=>new Promise((res,rej)=>{ const t=db.transaction('k').objectStore('k').get('dev'); t.onsuccess=()=>res(t.result); t.onerror=()=>rej(t.error); });
+  let k=await get(); if(!k&&create){ k=await crypto.subtle.generateKey({name:'AES-GCM',length:256},false,['encrypt','decrypt']); await new Promise((res,rej)=>{ const t=db.transaction('k','readwrite').objectStore('k').put(k,'dev'); t.onsuccess=res; t.onerror=()=>rej(t.error); }); } return k||null; }
+const vault={
+  meta(){ try{ return JSON.parse(localStorage.getItem(VK)||'null'); }catch(e){ return null; } },
+  enabled(){ return !!this.meta(); },
+  K:null,
+  async create(pin){ // buat brankas baru dari rahasia yang sedang ada di S
+    const K=crypto.getRandomValues(new Uint8Array(32)); const salt=crypto.getRandomValues(new Uint8Array(16));
+    const byPin=await sealWith(await pinKey(pin,salt),K);
+    const dk=await deviceKey(true); const byDev=await sealWith(dk,K);
+    const m={v:1,salt:b64(salt),byPin,byDev,cred:null,prf:null,data:null}; this.K=K; localStorage.setItem(VK,JSON.stringify(m)); await this.store(); save(); },
+  async store(){ if(!this.K) return; const m=this.meta(); const payload=enc.encode(JSON.stringify({apiKey:S.apiKey||'',kasirKey:S.kasirKey||'',syncKey:S.syncKey||''})); m.data=await sealWith(await rawKey(this.K),payload); localStorage.setItem(VK,JSON.stringify(m)); },
+  async loadSecrets(){ const m=this.meta(); if(!m||!m.data||!this.K) return; try{ const o=JSON.parse(dec.decode(await openWith(await rawKey(this.K),m.data))); Object.assign(S,o); }catch(e){ console.warn('brankas gagal dibuka',e); } },
+  async unlockPin(pin){ const m=this.meta(); try{ this.K=await openWith(await pinKey(pin,ub64(m.salt)),m.byPin); await this.loadSecrets(); return true; }catch(e){ return false; } },
+  async unlockDevice(){ const m=this.meta(); const dk=await deviceKey(false); if(!dk||!m.byDev) return false; try{ this.K=await openWith(dk,m.byDev); await this.loadSecrets(); return true; }catch(e){ return false; } },
+  async unlockPrf(bytes){ const m=this.meta(); if(!m.prf) return false; try{ this.K=await openWith(await rawKey(bytes),m.prf); await this.loadSecrets(); return true; }catch(e){ return false; } },
+  lock(){ this.K=null; SECRETS.forEach(k=>S[k]=''); },
+  async disable(){ localStorage.removeItem(VK); this.K=null; save(); }
+};
+const WEBAUTHN=!!(window.PublicKeyCredential&&navigator.credentials&&navigator.credentials.create);
+const PRF_SALT=enc.encode('nara-vault-prf-v1');
+async function bioAvailable(){ try{ return WEBAUTHN&&await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable(); }catch(e){ return false; } }
+async function bioEnroll(){
+  const m=vault.meta(); if(!m||!vault.K) throw new Error('Buat PIN dulu.');
+  const cred=await navigator.credentials.create({publicKey:{challenge:crypto.getRandomValues(new Uint8Array(32)),rp:{name:'Nara'},user:{id:enc.encode('furqan-nara'),name:'furqan',displayName:'Furqan'},
+    pubKeyCredParams:[{type:'public-key',alg:-7},{type:'public-key',alg:-257}],authenticatorSelection:{authenticatorAttachment:'platform',userVerification:'required',residentKey:'preferred'},timeout:60000,extensions:{prf:{}}}});
+  m.cred=b64(cred.rawId); const ext=cred.getClientExtensionResults&&cred.getClientExtensionResults(); m.prfSupported=!!(ext&&ext.prf&&ext.prf.enabled); m.prf=null;
+  localStorage.setItem(VK,JSON.stringify(m));
+  if(m.prfSupported){ try{ const a=await navigator.credentials.get({publicKey:{challenge:crypto.getRandomValues(new Uint8Array(32)),allowCredentials:[{type:'public-key',id:ub64(m.cred)}],userVerification:'required',extensions:{prf:{eval:{first:PRF_SALT}}}}}); const r=a.getClientExtensionResults().prf; if(r&&r.results&&r.results.first){ m.prf=await sealWith(await rawKey(new Uint8Array(r.results.first)),vault.K); localStorage.setItem(VK,JSON.stringify(m)); } }catch(e){} }
+}
+async function bioUnlock(){
+  const m=vault.meta(); if(!m||!m.cred) return false;
+  const a=await navigator.credentials.get({publicKey:{challenge:crypto.getRandomValues(new Uint8Array(32)),allowCredentials:[{type:'public-key',id:ub64(m.cred)}],userVerification:'required',timeout:60000,extensions:m.prf?{prf:{eval:{first:PRF_SALT}}}:{}}});
+  if(!a) return false;
+  if(m.prf){ const r=a.getClientExtensionResults().prf; if(r&&r.results&&r.results.first&&await vault.unlockPrf(new Uint8Array(r.results.first))) return true; }
+  return vault.unlockDevice();   // Face ID lolos → buka dengan kunci perangkat
+}
+// --- UI kunci ---
+const lockEl=$('lock'), pinbox=$('pinbox'), lockErr=$('lockErr'), bioBtn=$('bioBtn');
+const isApple=/iPhone|iPad|Macintosh/.test(navigator.userAgent), isPhone=/iPhone|iPad/.test(navigator.userAgent);
+$('bioLabel').textContent=isPhone?'Buka dengan Face ID':'Buka dengan Touch ID';
+let pinBuf='', pinMode='unlock', pinFirst='', pinResolve=null, locked=false, lastActive=Date.now();
+function drawPin(){ [...pinbox.children].forEach((d,i)=>d.classList.toggle('f',i<pinBuf.length)); }
+function askPin(title,msg,mode){ return new Promise(res=>{ pinMode=mode; pinResolve=res; pinBuf=''; pinFirst=''; drawPin(); $('lockTitle').textContent=title; $('lockMsg').textContent=msg; lockErr.textContent=''; bioBtn.hidden=!(mode==='unlock'&&vault.meta()&&vault.meta().cred); $('padCancel').hidden=(mode==='unlock'); lockEl.hidden=false; }); }
+$('pad').addEventListener('click',async e=>{ const b=e.target.closest('button'); if(!b) return; if(b.id==='padDel'){ pinBuf=pinBuf.slice(0,-1); drawPin(); return; } if(b.id==='padCancel'){ lockEl.hidden=true; pinResolve&&pinResolve(null); return; }
+  if(pinBuf.length>=6) return; pinBuf+=b.dataset.d; drawPin(); if(pinBuf.length<6) return;
+  if(pinMode==='create'){ if(!pinFirst){ pinFirst=pinBuf; pinBuf=''; drawPin(); $('lockMsg').textContent='Ulangi PIN yang sama.'; return; } if(pinFirst!==pinBuf){ pinFirst=''; pinBuf=''; drawPin(); lockErr.textContent='PIN tidak sama, coba lagi.'; $('lockMsg').textContent='Masukkan 6 angka PIN baru.'; return; } lockEl.hidden=true; pinResolve(pinBuf); return; }
+  const ok=await vault.unlockPin(pinBuf); if(ok){ lockEl.hidden=true; onUnlocked(); } else { pinBuf=''; drawPin(); lockErr.textContent='PIN salah.'; } });
+bioBtn.onclick=async()=>{ lockErr.textContent=''; try{ if(await bioUnlock()){ lockEl.hidden=true; onUnlocked(); } else lockErr.textContent='Tidak bisa membuka. Pakai PIN.'; }catch(e){ lockErr.textContent='Face ID dibatalkan atau tidak tersedia. Pakai PIN.'; } };
+function lockNow(){ if(!vault.enabled()||locked) return; locked=true; if(typeof stopTalk==='function') stopTalk(); vault.lock(); sheet.hidden=true; askPin('Nara terkunci',(vault.meta().cred?'Buka dengan Face ID atau masukkan PIN.':'Masukkan PIN.'),'unlock'); if(vault.meta().cred&&isApple){ setTimeout(()=>bioBtn.click(),300); } }
+function onUnlocked(){ locked=false; lastActive=Date.now(); renderAll(); if(S.syncUrl&&S.syncKey) pullSync(); }
+['pointerdown','keydown','touchstart'].forEach(ev=>document.addEventListener(ev,()=>{ lastActive=Date.now(); },{passive:true}));
+setInterval(()=>{ if(vault.enabled()&&!locked&&Date.now()-lastActive>5*60*1000&&!busy&&!(typeof vm!=='undefined'&&vm)) lockNow(); },15000);
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='hidden'&&vault.enabled()&&!locked) { if(Date.now()-lastActive>5*60*1000) lockNow(); } });
+// --- pengaturan keamanan ---
+async function renderSec(){ const m=vault.meta(); const bio=await bioAvailable(); $('setPinBtn').textContent=m?'Ganti PIN':'Buat PIN'; $('bioEnrollBtn').hidden=!(m&&bio); $('bioEnrollBtn').textContent=(m&&m.cred)?'Daftarkan ulang Face ID / Touch ID':'Aktifkan Face ID / Touch ID'; $('lockOffBtn').hidden=!m;
+  $('secStatus').textContent=!m?'Belum dikunci. Siapa pun yang memegang perangkat ini bisa memakai Nara.':(m.cred?'Kunci aktif: Face ID / Touch ID + PIN.':'Kunci aktif: PIN. Aktifkan Face ID supaya lebih praktis.'); }
+$('setPinBtn').onclick=async()=>{ sheet.hidden=true; const pin=await askPin(vault.enabled()?'PIN baru':'Buat PIN','Masukkan 6 angka PIN baru.','create'); if(!pin){ sheet.hidden=false; return; }
+  if(vault.enabled()){ if(!vault.K){ sheet.hidden=false; return; } const m=vault.meta(); const salt=crypto.getRandomValues(new Uint8Array(16)); m.salt=b64(salt); m.byPin=await sealWith(await pinKey(pin,salt),vault.K); localStorage.setItem(VK,JSON.stringify(m)); }
+  else { await vault.create(pin); }
+  sheet.hidden=false; await renderSec(); hint.textContent='PIN tersimpan.';
+  if(await bioAvailable()&&!vault.meta().cred){ try{ await bioEnroll(); await renderSec(); hint.textContent='PIN dan Face ID aktif.'; }catch(e){ hint.textContent='PIN aktif. Face ID bisa diaktifkan nanti dari Pengaturan.'; } } };
+$('bioEnrollBtn').onclick=async()=>{ try{ await bioEnroll(); await renderSec(); hint.textContent='Face ID / Touch ID aktif.'; }catch(e){ hint.textContent='Gagal mengaktifkan: '+(e.message||e); } };
+$('lockOffBtn').onclick=async()=>{ const b=$('lockOffBtn'); if(b.dataset.arm){ await vault.disable(); delete b.dataset.arm; b.textContent='Matikan kunci'; await renderSec(); } else { b.dataset.arm='1'; b.textContent='Yakin? Tekan lagi'; } };
+
 // ---------- boot ----------
-load(); renderAll(); pullSync();
+load(); renderAll();
+(async()=>{ if(vault.enabled()){ lockNow(); } else pullSync(); })();
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') pullSync(); });
 window.addEventListener('online',()=>setStatus(S.apiKey?'Siap ngobrol':'API key belum diisi',!!S.apiKey));
 window.addEventListener('offline',()=>setStatus('Tidak ada internet',false));
