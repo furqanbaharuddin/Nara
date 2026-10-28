@@ -50,7 +50,7 @@ button:focus-visible,textarea:focus-visible,input:focus-visible,select:focus-vis
 .face-float{animation:float 4s ease-in-out infinite;transform-origin:60px 60px}
 @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-1.5px)}}
 @media (prefers-reduced-motion:reduce){.face-float{animation:none}}
-.face .brow,.face .eye,.face .mouth,.face .pupil,.face .cheek{transition:transform .35s cubic-bezier(.3,1.3,.5,1),opacity .35s,d .25s ease}
+.face .brow,.face .eye,.face .mouth,.face .lips,.face .pupil,.face .cheek{transition:transform .35s cubic-bezier(.3,1.3,.5,1),opacity .35s,d .25s ease}
 .face .eye,.face .brow,.face .pupil{transform-box:fill-box;transform-origin:center}
 .state{text-align:center;font:600 13px var(--body);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);min-height:18px}
 .state.live{color:var(--accent)}
@@ -131,17 +131,69 @@ textarea{flex:1;min-width:0;resize:none;border:1px solid var(--line);border-radi
 
   <div class="facewrap">
     <div class="ring" id="ring">
-      <svg class="face" id="face" viewBox="0 0 120 120" role="img" aria-label="Wajah asisten">
-        <defs><radialGradient id="skin" cx="45%" cy="38%" r="70%"><stop offset="0" stop-color="var(--accent)" stop-opacity=".95"/><stop offset="1" stop-color="var(--accent)" stop-opacity=".65"/></radialGradient></defs>
+      <svg class="face" id="face" viewBox="0 0 120 120" role="img" aria-label="Wajah Nara">
+        <defs>
+          <radialGradient id="skinG" cx="46%" cy="36%" r="68%"><stop offset="0" stop-color="#e2b07e"/><stop offset=".55" stop-color="#c98d5c"/><stop offset="1" stop-color="#9a6238"/></radialGradient>
+          <radialGradient id="neckG" cx="50%" cy="0%" r="90%"><stop offset="0" stop-color="#8f5a33"/><stop offset="1" stop-color="#b57a4c"/></radialGradient>
+          <linearGradient id="hairG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3a2419"/><stop offset=".5" stop-color="#1c110c"/><stop offset="1" stop-color="#0d0806"/></linearGradient>
+          <linearGradient id="hairShine" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#ffffff" stop-opacity="0"/><stop offset=".5" stop-color="#ffffff" stop-opacity=".18"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/></linearGradient>
+          <radialGradient id="blushG"><stop offset="0" stop-color="#e2746a" stop-opacity=".55"/><stop offset="1" stop-color="#e2746a" stop-opacity="0"/></radialGradient>
+          <radialGradient id="irisG" cx="40%" cy="35%" r="70%"><stop offset="0" stop-color="#6b3d22"/><stop offset=".7" stop-color="#3a2113"/><stop offset="1" stop-color="#1b0f08"/></radialGradient>
+          <radialGradient id="lipG" cx="50%" cy="30%" r="70%"><stop offset="0" stop-color="#c0715f"/><stop offset="1" stop-color="#8e4a3e"/></radialGradient>
+          <filter id="soft" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="2.2"/></filter>
+          <filter id="soft1" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="1.1"/></filter>
+          <clipPath id="faceClip"><path d="M60 13 C83 13 95 33 95 56 C95 81 81 105 60 105 C39 105 25 81 25 56 C25 33 37 13 60 13 Z"/></clipPath>
+        </defs>
         <g class="face-float">
-          <circle cx="60" cy="60" r="52" fill="url(#skin)"/>
-          <circle class="cheek" data-k="cheekL" cx="36" cy="72" r="7" fill="#ffffff" opacity="0"/>
-          <circle class="cheek" data-k="cheekR" cx="84" cy="72" r="7" fill="#ffffff" opacity="0"/>
-          <path class="brow" data-k="browL" d="M30 42 Q40 36 50 41" stroke="var(--accent-ink)" stroke-width="3.5" stroke-linecap="round" fill="none"/>
-          <path class="brow" data-k="browR" d="M70 41 Q80 36 90 42" stroke="var(--accent-ink)" stroke-width="3.5" stroke-linecap="round" fill="none"/>
-          <g class="eye" data-k="eyeL"><ellipse cx="41" cy="56" rx="7" ry="8.5" fill="#ffffff"/><circle class="pupil" data-k="pupL" cx="42" cy="57" r="3.6" fill="#1a2230"/></g>
-          <g class="eye" data-k="eyeR"><ellipse cx="79" cy="56" rx="7" ry="8.5" fill="#ffffff"/><circle class="pupil" data-k="pupR" cx="80" cy="57" r="3.6" fill="#1a2230"/></g>
-          <path class="mouth" data-k="mouth" d="M44 80 Q60 90 76 80 Q60 86 44 80 Z" fill="#1a2230" opacity=".9"/>
+          <!-- rambut belakang -->
+          <path d="M22 44 C22 18 40 6 60 6 C80 6 98 18 98 44 L100 100 C100 112 92 118 84 118 L36 118 C28 118 20 112 20 100 Z" fill="url(#hairG)"/>
+          <!-- leher & bahu -->
+          <path d="M48 92 L72 92 L74 112 C84 113 96 116 104 120 L16 120 C24 116 36 113 46 112 Z" fill="url(#neckG)"/>
+          <path d="M48 92 L72 92 L72 104 C66 108 54 108 48 104 Z" fill="#7a4a29" opacity=".45" filter="url(#soft1)"/>
+          <!-- telinga -->
+          <ellipse cx="25" cy="62" rx="5.2" ry="8" fill="#c98d5c"/><ellipse cx="25.6" cy="62.5" rx="3" ry="5" fill="#a86d43" opacity=".7"/>
+          <ellipse cx="95" cy="62" rx="5.2" ry="8" fill="#c98d5c"/><ellipse cx="94.4" cy="62.5" rx="3" ry="5" fill="#a86d43" opacity=".7"/>
+          <!-- wajah -->
+          <path d="M60 13 C83 13 95 33 95 56 C95 81 81 105 60 105 C39 105 25 81 25 56 C25 33 37 13 60 13 Z" fill="url(#skinG)"/>
+          <g clip-path="url(#faceClip)">
+            <ellipse cx="60" cy="30" rx="22" ry="12" fill="#ffffff" opacity=".10" filter="url(#soft)"/>
+            <ellipse cx="60" cy="98" rx="30" ry="12" fill="#5c3418" opacity=".35" filter="url(#soft)"/>
+            <ellipse cx="33" cy="62" rx="7" ry="22" fill="#6b3d1e" opacity=".22" filter="url(#soft)"/>
+            <ellipse cx="87" cy="62" rx="7" ry="22" fill="#6b3d1e" opacity=".22" filter="url(#soft)"/>
+            <!-- bayangan rambut di dahi -->
+            <path d="M24 46 C34 30 46 24 60 24 C74 24 86 30 96 46 L96 36 L24 36 Z" fill="#1c110c" opacity=".35" filter="url(#soft)"/>
+          </g>
+          <!-- pipi merona -->
+          <circle class="cheek" data-k="cheekL" cx="38" cy="70" r="9" fill="url(#blushG)" opacity="0"/>
+          <circle class="cheek" data-k="cheekR" cx="82" cy="70" r="9" fill="url(#blushG)" opacity="0"/>
+          <!-- hidung -->
+          <path d="M57 56 C55 64 53 68 54 72 C56 75 64 75 66 72 C67 68 65 64 63 56" fill="none" stroke="#8a552f" stroke-width="1.1" stroke-linecap="round" opacity=".3"/>
+          <path d="M54 72 C56 75 64 75 66 72" fill="none" stroke="#7a4524" stroke-width="1.3" stroke-linecap="round" opacity=".45"/>
+          <ellipse cx="60" cy="62" rx="3" ry="9" fill="#ffffff" opacity=".12" filter="url(#soft1)"/>
+          <!-- alis -->
+          <path class="brow" data-k="browL" d="M31 44 Q40 38 50 42" stroke="#1f1310" stroke-width="3.2" stroke-linecap="round" fill="none"/>
+          <path class="brow" data-k="browR" d="M70 42 Q80 38 89 44" stroke="#1f1310" stroke-width="3.2" stroke-linecap="round" fill="none"/>
+          <!-- mata -->
+          <g class="eye" data-k="eyeL">
+            <path d="M33 56 C37 50 46 50 49 56 C46 61 37 61 33 56 Z" fill="#f6efe8"/>
+            <g class="pupil" data-k="pupL"><circle cx="41.5" cy="56.3" r="4.1" fill="url(#irisG)"/><circle cx="41.5" cy="56.3" r="1.9" fill="#0b0604"/><circle cx="40.1" cy="54.9" r="1.1" fill="#ffffff" opacity=".9"/></g>
+            <path d="M33 56 C37 50 46 50 49 56" fill="none" stroke="#2a1711" stroke-width="1.6" stroke-linecap="round"/>
+            <path d="M34.5 57.5 C38 60.5 45 60.5 48 57.5" fill="none" stroke="#7a4a2c" stroke-width=".7" opacity=".6"/>
+          </g>
+          <g class="eye" data-k="eyeR">
+            <path d="M71 56 C74 50 83 50 87 56 C83 61 74 61 71 56 Z" fill="#f6efe8"/>
+            <g class="pupil" data-k="pupR"><circle cx="78.5" cy="56.3" r="4.1" fill="url(#irisG)"/><circle cx="78.5" cy="56.3" r="1.9" fill="#0b0604"/><circle cx="77.1" cy="54.9" r="1.1" fill="#ffffff" opacity=".9"/></g>
+            <path d="M71 56 C74 50 83 50 87 56" fill="none" stroke="#2a1711" stroke-width="1.6" stroke-linecap="round"/>
+            <path d="M72 57.5 C75 60.5 82 60.5 85.5 57.5" fill="none" stroke="#7a4a2c" stroke-width=".7" opacity=".6"/>
+          </g>
+          <!-- bibir & mulut -->
+          <path class="lips" data-k="lips" d="M43 82 Q60 92 77 82 Q60 88 43 82 Z" fill="url(#lipG)"/>
+          <path class="mouth" data-k="mouth" d="M45 82 Q60 90 75 82 Q60 86 45 82 Z" fill="#4a1f1a"/>
+          <!-- rambut depan (poni) -->
+          <path d="M22 50 C20 26 36 10 60 10 C84 10 100 26 98 50 C94 40 86 36 78 38 C72 30 64 30 60 34 C56 30 46 30 40 38 C32 36 26 40 22 50 Z" fill="url(#hairG)"/>
+          <path d="M30 22 C42 12 70 10 90 24" fill="none" stroke="url(#hairShine)" stroke-width="7" stroke-linecap="round"/>
+          <path d="M78 38 C84 36 90 40 96 48" fill="none" stroke="#3a2419" stroke-width="1.2" opacity=".6"/>
+          <path d="M42 38 C36 36 30 40 24 48" fill="none" stroke="#3a2419" stroke-width="1.2" opacity=".6"/>
         </g>
       </svg>
     </div>
@@ -249,7 +301,7 @@ textarea{flex:1;min-width:0;resize:none;border:1px solid var(--line);border-radi
 <script>
 (function(){
 'use strict';
-const APP_VER='1.3.2';
+const APP_VER='1.4.0';
 const $=id=>document.getElementById(id);
 const col=$('col'), main=$('main'), input=$('input'), sendBtn=$('sendBtn'), hint=$('hint');
 
@@ -298,24 +350,25 @@ function setSync(t,ok){ const el=$('syncStatus'); if(el){ el.textContent=t; el.c
 // ---------- face ----------
 function makeFace(svg){
   const q=k=>svg.querySelector('[data-k="'+k+'"]');
-  const el={browL:q('browL'),browR:q('browR'),eyeL:q('eyeL'),eyeR:q('eyeR'),pupL:q('pupL'),pupR:q('pupR'),mouth:q('mouth'),cheekL:q('cheekL'),cheekR:q('cheekR')};
+  const el={browL:q('browL'),browR:q('browR'),eyeL:q('eyeL'),eyeR:q('eyeR'),pupL:q('pupL'),pupR:q('pupR'),mouth:q('mouth'),lips:q('lips'),cheekL:q('cheekL'),cheekR:q('cheekR')};
   return el;
 }
 const EXP={
-  netral:   {brow:[0,0,0],   eye:1,    pupil:[0,0],  mouth:{w:30,y:80,c:4,o:2},   cheek:0,   label:'siap'},
-  senang:   {brow:[-4,4,-2], eye:.95,  pupil:[0,0],  mouth:{w:34,y:79,c:11,o:3},  cheek:.35, label:'senang'},
-  tertawa:  {brow:[-6,6,-3], eye:.3,   pupil:[0,0],  mouth:{w:34,y:78,c:9,o:14},  cheek:.4,  label:'tertawa'},
-  sedih:    {brow:[16,-16,-1],eye:.8,  pupil:[0,2],  mouth:{w:26,y:84,c:-7,o:2},  cheek:0,   label:'sedih'},
-  kaget:    {brow:[0,0,-7],  eye:1.25, pupil:[0,0],  mouth:{w:16,y:80,c:0,o:14},  cheek:.2,  label:'kaget'},
-  berpikir: {brow:[-10,10,-3],eye:.9,  pupil:[4,-4], mouth:{w:20,y:82,c:-2,o:1},  cheek:0,   label:'berpikir…'},
-  peduli:   {brow:[9,-9,-2], eye:.92,  pupil:[0,0],  mouth:{w:28,y:80,c:5,o:2},   cheek:.25, label:'peduli'},
-  mendengar:{brow:[0,0,-5],  eye:1.1,  pupil:[0,-1], mouth:{w:14,y:81,c:2,o:6},   cheek:0,   label:'mendengarkan'},
-  bingung:  {brow:[-12,4,-2],eye:.9,   pupil:[-3,0], mouth:{w:22,y:82,c:-1,o:2},  cheek:0,   label:'bingung'}
+  netral:   {brow:[0,0,0],   eye:1,    pupil:[0,0],  mouth:{w:30,y:82,c:4,o:1.5},   cheek:0,   label:'siap'},
+  senang:   {brow:[-4,4,-2], eye:.95,  pupil:[0,0],  mouth:{w:34,y:81,c:10,o:2.5},  cheek:.35, label:'senang'},
+  tertawa:  {brow:[-6,6,-3], eye:.3,   pupil:[0,0],  mouth:{w:34,y:80,c:8,o:12},  cheek:.4,  label:'tertawa'},
+  sedih:    {brow:[16,-16,-1],eye:.8,  pupil:[0,2],  mouth:{w:26,y:85,c:-6,o:1.5},  cheek:0,   label:'sedih'},
+  kaget:    {brow:[0,0,-7],  eye:1.25, pupil:[0,0],  mouth:{w:16,y:82,c:0,o:12},  cheek:.2,  label:'kaget'},
+  berpikir: {brow:[-10,10,-3],eye:.9,  pupil:[4,-4], mouth:{w:20,y:83,c:-2,o:1},  cheek:0,   label:'berpikir…'},
+  peduli:   {brow:[9,-9,-2], eye:.92,  pupil:[0,0],  mouth:{w:28,y:82,c:5,o:1.5},   cheek:.25, label:'peduli'},
+  mendengar:{brow:[0,0,-5],  eye:1.1,  pupil:[0,-1], mouth:{w:14,y:82,c:2,o:5},   cheek:0,   label:'mendengarkan'},
+  bingung:  {brow:[-12,4,-2],eye:.9,   pupil:[-3,0], mouth:{w:22,y:83,c:-1,o:1.5},  cheek:0,   label:'bingung'}
 };
 const ALIAS={bahagia:'senang',gembira:'senang',senyum:'senang',lucu:'tertawa',haha:'tertawa',murung:'sedih',kecewa:'sedih',terkejut:'kaget',wow:'kaget',mikir:'berpikir',penasaran:'berpikir',empati:'peduli',perhatian:'peduli',biasa:'netral',tenang:'netral',heran:'bingung',ragu:'bingung'};
 const faces=[makeFace($('face'))];
 let cur='netral', talking=false;
 function mouthPath(m,extra){ const x1=60-m.w/2,x2=60+m.w/2,o=m.o+extra; return `M${x1} ${m.y} Q60 ${m.y+m.c} ${x2} ${m.y} Q60 ${m.y+m.c+o} ${x1} ${m.y} Z`; }
+function lipsPath(m,extra){ const x1=60-m.w/2-3,x2=60+m.w/2+3,o=m.o+extra; return `M${x1} ${m.y} Q60 ${m.y+m.c-3.5} ${x2} ${m.y} Q60 ${m.y+m.c+o+3.5} ${x1} ${m.y} Z`; }
 function applyFace(name){
   const e=EXP[name]||EXP.netral; cur=EXP[name]?name:'netral';
   faces.forEach(el=>{
@@ -324,12 +377,12 @@ function applyFace(name){
     el.eyeL.style.transform=el.eyeR.style.transform=`scaleY(${e.eye})`;
     el.pupL.style.transform=el.pupR.style.transform=`translate(${e.pupil[0]}px,${e.pupil[1]}px)`;
     el.cheekL.style.opacity=el.cheekR.style.opacity=e.cheek;
-    if(!talking) el.mouth.setAttribute('d',mouthPath(e.mouth,0));
+    if(!talking){ el.mouth.setAttribute('d',mouthPath(e.mouth,0)); el.lips&&el.lips.setAttribute('d',lipsPath(e.mouth,0)); }
   });
 }
 const face={ set(n){ applyFace(ALIAS[n]||n); }, setTalking(v){ talking=!!v; applyFace(cur); } };
 (function blink(){ setTimeout(()=>{ const e=EXP[cur]; faces.forEach(el=>[el.eyeL,el.eyeR].forEach(x=>{x.style.transition='transform .08s';x.style.transform='scaleY(.08)';})); setTimeout(()=>{ faces.forEach(el=>[el.eyeL,el.eyeR].forEach(x=>{x.style.transform=`scaleY(${e.eye})`;setTimeout(()=>x.style.transition='',120);})); },110); blink(); },2600+Math.random()*3400); })();
-(function tick(ts){ if(talking){ const e=EXP[cur]; const o=4+Math.abs(Math.sin(ts/90))*7+Math.abs(Math.sin(ts/230))*3; faces.forEach(el=>el.mouth.setAttribute('d',mouthPath(e.mouth,o))); } requestAnimationFrame(tick); })(0);
+(function tick(ts){ if(talking){ const e=EXP[cur]; const o=4+Math.abs(Math.sin(ts/90))*7+Math.abs(Math.sin(ts/230))*3; faces.forEach(el=>{ el.mouth.setAttribute('d',mouthPath(e.mouth,o)); el.lips&&el.lips.setAttribute('d',lipsPath(e.mouth,o)); }); } requestAnimationFrame(tick); })(0);
 function stripMood(text){
   const m=text.match(/^\s*\[([a-zA-Z]+)\]\s*/); if(m) return {mood:m[1].toLowerCase(),body:text.slice(m[0].length)};
   if(/^\s*\[[a-zA-Z]*$/.test(text)) return {mood:null,body:''};
