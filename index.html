@@ -241,8 +241,8 @@ textarea{flex:1;min-width:0;resize:none;border:1px solid var(--line);border-radi
     <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" id="setPinBtn" type="button">Buat PIN</button><button class="btn" id="bioEnrollBtn" type="button" hidden>Aktifkan Face ID / Touch ID</button><button class="btn danger" id="lockOffBtn" type="button" hidden>Matikan kunci</button></div>
     <p class="sub" style="margin-top:8px">Dengan kunci aktif, API key dan kunci kasir disimpan terenkripsi dan hanya terbuka lewat Face ID atau PIN. Nara mengunci sendiri setelah 5 menit tidak dipakai.</p>
 
-    <h3>Permintaan fitur untuk Claude</h3>
-    <p class="sub">Bilang ke Nara: "catat permintaan: …" dan dia menyimpannya di sini. Tekan Salin, lalu tempel ke obrolan dengan Claude supaya dibuatkan.</p>
+    <h3>Usulan perubahan untuk Claude</h3>
+    <p class="sub">Nara hanya membaca dan menjelaskan; dia tidak bisa mengubah SOP, harga, atau data. Setiap permintaan perubahan dia catat di sini. Tekan Salin, lalu tempel ke obrolan dengan Claude untuk dibahas dan dibuatkan.</p>
     <div class="field"><textarea id="fRequests" readonly placeholder="Belum ada permintaan."></textarea></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="copyReqBtn" type="button">Salin semua permintaan</button><button class="btn danger" id="clearReqBtn" type="button">Kosongkan</button></div>
     <div class="status-line" id="reqStatus"></div>
@@ -268,7 +268,7 @@ textarea{flex:1;min-width:0;resize:none;border:1px solid var(--line);border-radi
 <script>
 (function(){
 'use strict';
-const APP_VER='3.2.0';
+const APP_VER='3.2.1';
 const $=id=>document.getElementById(id);
 const col=$('col'), main=$('main'), input=$('input'), sendBtn=$('sendBtn'), hint=$('hint');
 
@@ -467,9 +467,9 @@ const TOOLS=[
   { name:'baca_sop', description:'Baca isi SOP Operasional PURE MOTRET (kasir, asisten keuangan, fotografer, manager operasional, marketing, rapat mingguan, editor): harga paket, aturan kategori, alur booking, closing & serah terima kas, komplain, refund DP, komisi, gaji, KPI, prosedur SP, standar edit, dst. Berikan topik yang dicari; hasilnya potongan SOP yang paling relevan. WAJIB dipakai sebelum menjawab pertanyaan tentang aturan, harga, atau prosedur studio.',
     input_schema:{type:'object',properties:{topik:{type:'string',description:'kata kunci / pertanyaan, mis. "refund DP batal", "harga paket grup Pue Bongo", "komisi fotografer"'},peran:{type:'string',description:'opsional: kasir, asisten keuangan, fotografer, manager, marketing, editor'}},required:['topik']},
     run(inp){ return sopSearch(inp.topik,inp.peran,7000); } },
-  { name:'catat_permintaan', description:'Catat permintaan fitur/perubahan untuk aplikasi Nara ini agar nanti dibuatkan oleh Claude (pembuatnya). Panggil saat Furqan minta Nara punya kemampuan baru atau ingin sesuatu di aplikasi diubah. Jangan janjikan fitur itu langsung ada.',
-    input_schema:{type:'object',properties:{permintaan:{type:'string',description:'Permintaan dalam satu-dua kalimat jelas, dengan kata-kata Furqan'}},required:['permintaan']},
-    run(inp){ const p=String(inp.permintaan||'').trim(); if(!p) return 'Error: kosong'; S.requests=(S.requests||[]).concat([{t:Date.now(),text:p}]); touch(); return 'ok, tercatat (total '+S.requests.length+')'; } },
+  { name:'catat_permintaan', description:'Catat USULAN PERUBAHAN untuk diteruskan ke Claude (pembuat Nara): fitur baru Nara, revisi SOP, perubahan harga/paket/aturan, koreksi data kasir, atau apa pun yang mengubah sistem studio. Nara TIDAK punya wewenang mengubah apa pun; tool ini hanya mencatat. Panggil setiap kali Furqan meminta sesuatu diubah/ditambah/dihapus.',
+    input_schema:{type:'object',properties:{permintaan:{type:'string',description:'Usulan dalam satu-dua kalimat jelas dengan kata-kata Furqan'},jenis:{type:'string',enum:['fitur-nara','sop','harga-paket','data-kasir','lainnya'],description:'kategori usulan'}},required:['permintaan']},
+    run(inp){ const p=String(inp.permintaan||'').trim(); if(!p) return 'Error: kosong'; const j=String(inp.jenis||'lainnya'); S.requests=(S.requests||[]).concat([{t:Date.now(),text:'['+j+'] '+p}]); touch(); return 'ok, tercatat sebagai usulan untuk Claude (total '+S.requests.length+'). Belum ada yang berubah.'; } },
   { name:'simpan_catatan', description:'Simpan satu catatan singkat ke ingatan jangka panjang asisten (dibaca lagi di setiap percakapan). Panggil hanya saat Furqan minta mengingat/mencatat sesuatu.',
     input_schema:{type:'object',properties:{catatan:{type:'string',description:'Satu kalimat singkat'}},required:['catatan']},
     run(inp){ const c=String(inp.catatan||'').trim(); if(!c) return 'Error: kosong'; S.notes=(S.notes?S.notes+'\n':'')+'- '+c; touch(); return 'ok, tersimpan'; } },
@@ -494,6 +494,8 @@ ${S.summary||'(belum ada)'}
 Kamu punya akses ke SOP Operasional PURE MOTRET lewat tool baca_sop. Daftar bagiannya:
 ${sopIndex()}
 
+Batas wewenangmu (PENTING): kamu HANYA BOLEH MEMBACA dan menjelaskan — data kasir, SOP, harga, jadwal, catatan. Kamu TIDAK BISA dan TIDAK BOLEH mengubah, menambah, menghapus, atau "memperbarui" apa pun di aplikasi kasir, SOP, Google Sheet, atau sistem studio. Kalau Furqan minta sesuatu diubah (SOP, harga, paket, aturan, data transaksi, fitur Nara), jawab jujur bahwa kamu tidak punya wewenang mengubah, panggil catat_permintaan dengan jenis yang sesuai, lalu bilang usulan itu sudah dicatat untuk diteruskan ke Claude yang akan menyiapkan pembaruannya bersama Furqan. Jangan pernah mengatakan sesuatu "sudah diubah" atau "sudah diperbarui".
+
 Aturan menjawab:
 - Untuk pertanyaan tentang aturan, prosedur, harga paket, komisi, gaji, komplain, refund, KPI, atau tugas tiap peran di studio: WAJIB panggil baca_sop dulu dan jawab berdasarkan isinya; sebut nomor bagiannya (mis. "sesuai SOP 1.12"). Kalau SOP tidak mengatur, katakan begitu.
 - WAJIB: awali setiap jawaban dengan satu kata ekspresi wajah dalam kurung siku, lalu spasi, lalu jawabanmu. Pilihannya hanya: [netral] [senang] [tertawa] [sedih] [kaget] [berpikir] [peduli] [bingung]. Contoh: "[senang] Wah, kabar baik itu!"
@@ -502,7 +504,7 @@ Aturan menjawab:
 - Untuk pertanyaan angka bisnis (pemasukan, omzet, kas, belum lunas, booking) WAJIB panggil tool data_kasir dulu, lalu jawab dari datanya. Kalau tool gagal, bilang apa adanya.
 - Kamu punya akses internet lewat tool web_search. Pakai untuk hal yang butuh info terkini atau yang tidak kamu yakini: berita, cuaca, harga, jadwal, alamat, tren, fakta terbaru. Untuk obrolan biasa tidak perlu mencari. Setelah mencari, jawab dengan ringkas seperti bicara; jangan membacakan daftar link atau sumber, cukup sebut nama sumbernya kalau penting.
 - Kalau Furqan minta mengingat/mencatat sesuatu, panggil simpan_catatan lalu konfirmasi singkat.
-- Kalau Furqan ingin KAMU punya fitur baru atau aplikasi ini diubah (misalnya "Nara, bisa nggak kamu…", "tambahkan fitur…", "catat permintaan…"), panggil catat_permintaan, lalu bilang singkat bahwa permintaan sudah dicatat dan akan dibuatkan Claude; jangan pura-pura fiturnya sudah ada.
+- Kalau Furqan ingin KAMU punya fitur baru (misalnya "Nara, bisa nggak kamu…"), panggil catat_permintaan jenis fitur-nara, lalu bilang singkat bahwa sudah dicatat untuk Claude; jangan pura-pura fiturnya sudah ada.
 - Kalau tidak tahu, bilang tidak tahu. Jangan mengarang.`;
 }
 
@@ -691,7 +693,7 @@ $('saveBtn').onclick=async()=>{
 };
 function reqText(){ return (S.requests||[]).map((r,i)=>(i+1)+'. '+r.text+'  ('+new Date(r.t).toLocaleDateString('id-ID',{day:'numeric',month:'short'})+')').join('\n'); }
 function renderRequests(){ $('fRequests').value=reqText(); }
-$('copyReqBtn').onclick=async()=>{ const t=reqText(); const st=$('reqStatus'); if(!t){ st.textContent='Belum ada permintaan.'; return; } const msg='Permintaan fitur dari Nara (aplikasi asisten Furqan):\n'+t; try{ await navigator.clipboard.writeText(msg); st.textContent='Tersalin. Tempel ke obrolan dengan Claude.'; st.className='status-line ok'; }catch(e){ $('fRequests').select(); st.textContent='Tekan ⌘C untuk menyalin teks yang sudah dipilih.'; } };
+$('copyReqBtn').onclick=async()=>{ const t=reqText(); const st=$('reqStatus'); if(!t){ st.textContent='Belum ada permintaan.'; return; } const msg='Usulan perubahan yang dicatat Nara (asisten Furqan):\n'+t; try{ await navigator.clipboard.writeText(msg); st.textContent='Tersalin. Tempel ke obrolan dengan Claude.'; st.className='status-line ok'; }catch(e){ $('fRequests').select(); st.textContent='Tekan ⌘C untuk menyalin teks yang sudah dipilih.'; } };
 $('clearReqBtn').onclick=()=>{ const b=$('clearReqBtn'); if(b.dataset.arm){ S.requests=[]; touch(); renderRequests(); delete b.dataset.arm; b.textContent='Kosongkan'; } else { b.dataset.arm='1'; b.textContent='Yakin? Tekan lagi'; } };
 $('clearBtn').onclick=()=>{ const b=$('clearBtn'); if(b.dataset.arm){ history=[]; touch(); renderAll(); sheet.hidden=true; delete b.dataset.arm; b.textContent='Hapus riwayat obrolan'; } else { b.dataset.arm='1'; b.textContent='Yakin? Tekan lagi untuk hapus'; } };
 
