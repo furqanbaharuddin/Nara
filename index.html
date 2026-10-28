@@ -233,7 +233,7 @@ textarea{flex:1;min-width:0;resize:none;border:1px solid var(--line);border-radi
     <h3>Suara</h3>
     <div class="field"><label for="fVoice">Suara</label><select id="fVoice"></select><small>Kalau tidak ada suara Indonesia: iPhone → Pengaturan → Aksesibilitas → Konten Lisan → Suara → Indonesia. Mac → System Settings → Accessibility → Spoken Content.</small></div>
     <div class="field"><label for="fRate">Kecepatan bicara: <span id="rateVal">1.0</span></label><input id="fRate" type="range" min="0.7" max="1.4" step="0.05" value="1"></div>
-    <div class="field"><label for="fPause">Jeda diam sebelum Nara menjawab: <span id="pauseVal">2.5</span> detik</label><input id="fPause" type="range" min="1" max="5" step="0.25" value="2.5"><small>Perbesar kalau Nara sering memotong; perkecil kalau terasa lambat menanggapi.</small></div>
+    <div class="field"><label for="fPause">Jeda diam sebelum Nara menjawab: <span id="pauseVal">2.5</span> detik</label><input id="fPause" type="range" min="1" max="5" step="0.25" value="2.5"><small>Perbesar kalau Nara sering memotong; perkecil kalau terasa lambat menanggapi. Atau akhiri kalimat dengan "sudah" / "udah" / "selesai" supaya Nara langsung menjawab.</small></div>
     <div class="row"><span>Bacakan jawaban di mode ketik</span><button class="toggle" id="tSpeak" role="switch" aria-checked="false" aria-label="Bacakan jawaban"></button></div>
 
     <h3>Keamanan</h3>
@@ -268,7 +268,7 @@ textarea{flex:1;min-width:0;resize:none;border:1px solid var(--line);border-radi
 <script>
 (function(){
 'use strict';
-const APP_VER='3.3.0';
+const APP_VER='3.3.1';
 const $=id=>document.getElementById(id);
 const col=$('col'), main=$('main'), input=$('input'), sendBtn=$('sendBtn'), hint=$('hint');
 
@@ -378,7 +378,9 @@ if(synth){ loadVoices(); synth.onvoiceschanged=loadVoices; }
 function pickVoice(){ if(S.voice){ const v=voices.find(v=>v.name===S.voice); if(v) return v; } return voices.find(v=>/^id/i.test(v.lang))||null; }
 const tts={ queue:[], speaking:false, onIdle:null,
   say(text){ if(!synth||!text.trim()) return; this.queue.push(text.trim()); this.next(); },
-  next(){ if(this.speaking||!this.queue.length) return; const t=this.queue.shift(); const u=new SpeechSynthesisUtterance(t); u.lang='id-ID'; const v=pickVoice(); if(v) u.voice=v; u.rate=S.rate||1;
+  take(){ // gabungkan semua kalimat yang sudah menunggu jadi satu tarikan bicara (maks ~320 karakter supaya Safari tidak memotong)
+    let t=''; while(this.queue.length){ const n=this.queue[0]; if(t&&(t.length+n.length)>320) break; t+=(t?' ':'')+n; this.queue.shift(); } return t; },
+  next(){ if(this.speaking||!this.queue.length) return; const t=this.take(); const u=new SpeechSynthesisUtterance(t); u.lang='id-ID'; const v=pickVoice(); if(v) u.voice=v; u.rate=S.rate||1;
     this.speaking=true; u.onstart=()=>face.setTalking(true);
     u.onend=u.onerror=()=>{ this.speaking=false; if(this.queue.length) this.next(); else { face.setTalking(false); if(this.onIdle) this.onIdle(); } };
     synth.speak(u); },
@@ -388,7 +390,8 @@ const tts={ queue:[], speaking:false, onIdle:null,
 // sentence streamer: feeds TTS as text arrives
 function makeSpeaker(enabled){
   let buf='', spoken=0;
-  return { feed(fullBody){ if(!enabled) return; const fresh=fullBody.slice(spoken); const m=fresh.match(/^[\s\S]*?[.!?…]+(?=\s|$)|^[\s\S]*?\n/); if(m&&m[0].trim().length>1){ tts.say(m[0]); spoken+=m[0].length; } },
+  return { feed(fullBody){ if(!enabled) return; let fresh=fullBody.slice(spoken); let m;
+      while((m=fresh.match(/^[\s\S]*?[.!?…]+(?=\s|$)|^[\s\S]*?\n/))&&m[0].trim().length>1){ tts.say(m[0]); spoken+=m[0].length; fresh=fullBody.slice(spoken); } },
     flush(fullBody){ if(!enabled) return; const rest=fullBody.slice(spoken).trim(); if(rest) tts.say(rest); spoken=fullBody.length; } };
 }
 
@@ -401,8 +404,11 @@ function listen(onFinal,onInterim){
     rec=new SR(); rec.lang='id-ID'; rec.interimResults=true; rec.continuous=false; rec.maxAlternatives=1;
     let finalText='', lastText='', silence=null, maxT=null;
     const finish=()=>{ try{ rec.stop(); }catch(e){} setTimeout(()=>{ if(listening){ listening=false; onFinal((finalText||lastText).trim()||null,null); } },600); };
+    const END_RE=/[\s,]*(sudah|udah|selesai|cukup|sekian)\s*[.!?]*\s*$/i;
     rec.onresult=e=>{ let s=''; for(const r of e.results){ s+=r[0].transcript; if(r.isFinal) finalText=s; } lastText=s; onInterim&&onInterim(s);
-      clearTimeout(silence); if(s.trim()) silence=setTimeout(finish,Math.round((Number(S.pause)||2.5)*1000)); };
+      clearTimeout(silence); if(!s.trim()) return;
+      if(END_RE.test(s)&&s.trim().split(/\s+/).length>1){ const cut=s.replace(END_RE,'').trim(); finalText=cut||finalText; lastText=cut||lastText; finish(); return; }
+      silence=setTimeout(finish,Math.round((Number(S.pause)||2.5)*1000)); };
     maxT=setTimeout(()=>{ if(listening&&lastText.trim()) finish(); },45000);
     let errored=false;
     rec.onerror=e=>{ clearTimeout(silence); clearTimeout(maxT); errored=true; if(!listening) return; listening=false; onFinal(null,e.error||'error'); };
