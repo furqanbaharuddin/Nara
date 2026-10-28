@@ -268,7 +268,7 @@ textarea{flex:1;min-width:0;resize:none;border:1px solid var(--line);border-radi
 <script>
 (function(){
 'use strict';
-const APP_VER='3.1.1';
+const APP_VER='3.2.0';
 const $=id=>document.getElementById(id);
 const col=$('col'), main=$('main'), input=$('input'), sendBtn=$('sendBtn'), hint=$('hint');
 
@@ -444,8 +444,29 @@ function ringkasKasir(j,dari,sampai,cabang,detail){
   return res;
 }
 
+// ---------- SOP studio ----------
+let SOP=null;
+fetch('sop.json?v='+APP_VER).then(r=>r.json()).then(j=>{ SOP=j; }).catch(e=>console.warn('SOP gagal dimuat',e));
+function sopIndex(){ if(!SOP) return '(SOP belum termuat)'; const by={}; SOP.bagian.forEach(b=>{ (by[b.peran]=by[b.peran]||[]).push(b.title); }); return Object.entries(by).map(([k,v])=>k+': '+v.filter(t=>!/ringkasan/.test(t)).join('; ')).join('\n'); }
+const STOP=new Set(['di','ke','ya','yang','dan','atau','itu','ini','apa','ada','jadi','dari','untuk','pada','dengan','saya','kamu','nara','berapa','bagaimana','gimana','kalau','bila','lama','sih','dong','nggak','tidak','bisa','harus','tolong','coba','mau']);
+function tokens(t){ return String(t||'').toLowerCase().replace(/[^a-z0-9\u00C0-\u024F ]+/g,' ').split(/\s+/).filter(w=>w.length>1&&!STOP.has(w)); }
+function sopSearch(topik,peran,maxChars){
+  if(!SOP) return 'SOP belum termuat.';
+  const q=[...new Set(tokens(topik))]; const want=String(peran||'').toLowerCase(); const N=SOP.bagian.length;
+  const idf=w=>{ const df=SOP.bagian.filter(b=>(b.title+' '+b.text).toLowerCase().includes(w)).length; return Math.log((N+1)/(df+1))+0.3; };
+  const W={}; q.forEach(w=>W[w]=idf(w));
+  const scored=SOP.bagian.map(b=>{ const title=b.title.toLowerCase(), hay=b.text.toLowerCase(); let sc=0;
+    q.forEach(w=>{ if(title.includes(w)) sc+=6*W[w]; const m=hay.split(w).length-1; if(m) sc+=(1+Math.min(m,5)*.4)*W[w]; });
+    if(want&&b.peran.toLowerCase().includes(want)) sc*=1.3; if(/ringkasan/.test(b.id)) sc*=.6; return {b,sc}; }).filter(x=>x.sc>0).sort((a,b)=>b.sc-a.sc);
+  const pick=[]; let used=0; for(const {b} of scored){ const chunk='## ['+b.peran+'] '+b.title+'\n'+b.text; if(used+chunk.length>maxChars) continue; pick.push(chunk); used+=chunk.length; if(pick.length>=5) break; }
+  return pick.length?('SOP Operasional PURE MOTRET '+SOP.versi+'\n\n'+pick.join('\n\n')):'Tidak ada bagian SOP yang cocok. Daftar bagian:\n'+sopIndex();
+}
+
 // ---------- tools for Claude ----------
 const TOOLS=[
+  { name:'baca_sop', description:'Baca isi SOP Operasional PURE MOTRET (kasir, asisten keuangan, fotografer, manager operasional, marketing, rapat mingguan, editor): harga paket, aturan kategori, alur booking, closing & serah terima kas, komplain, refund DP, komisi, gaji, KPI, prosedur SP, standar edit, dst. Berikan topik yang dicari; hasilnya potongan SOP yang paling relevan. WAJIB dipakai sebelum menjawab pertanyaan tentang aturan, harga, atau prosedur studio.',
+    input_schema:{type:'object',properties:{topik:{type:'string',description:'kata kunci / pertanyaan, mis. "refund DP batal", "harga paket grup Pue Bongo", "komisi fotografer"'},peran:{type:'string',description:'opsional: kasir, asisten keuangan, fotografer, manager, marketing, editor'}},required:['topik']},
+    run(inp){ return sopSearch(inp.topik,inp.peran,7000); } },
   { name:'catat_permintaan', description:'Catat permintaan fitur/perubahan untuk aplikasi Nara ini agar nanti dibuatkan oleh Claude (pembuatnya). Panggil saat Furqan minta Nara punya kemampuan baru atau ingin sesuatu di aplikasi diubah. Jangan janjikan fitur itu langsung ada.',
     input_schema:{type:'object',properties:{permintaan:{type:'string',description:'Permintaan dalam satu-dua kalimat jelas, dengan kata-kata Furqan'}},required:['permintaan']},
     run(inp){ const p=String(inp.permintaan||'').trim(); if(!p) return 'Error: kosong'; S.requests=(S.requests||[]).concat([{t:Date.now(),text:p}]); touch(); return 'ok, tercatat (total '+S.requests.length+')'; } },
@@ -470,7 +491,11 @@ ${S.notes||'(belum ada)'}
 Ringkasan obrolan sebelumnya:
 ${S.summary||'(belum ada)'}
 
+Kamu punya akses ke SOP Operasional PURE MOTRET lewat tool baca_sop. Daftar bagiannya:
+${sopIndex()}
+
 Aturan menjawab:
+- Untuk pertanyaan tentang aturan, prosedur, harga paket, komisi, gaji, komplain, refund, KPI, atau tugas tiap peran di studio: WAJIB panggil baca_sop dulu dan jawab berdasarkan isinya; sebut nomor bagiannya (mis. "sesuai SOP 1.12"). Kalau SOP tidak mengatur, katakan begitu.
 - WAJIB: awali setiap jawaban dengan satu kata ekspresi wajah dalam kurung siku, lalu spasi, lalu jawabanmu. Pilihannya hanya: [netral] [senang] [tertawa] [sedih] [kaget] [berpikir] [peduli] [bingung]. Contoh: "[senang] Wah, kabar baik itu!"
 - Jawaban akan DIBACAKAN dengan suara: tulis seperti orang bicara. Singkat (1-4 kalimat kecuali diminta panjang), tanpa markdown, tanpa bullet, tanpa emoji, angka rupiah ditulis "Rp 1,2 juta" atau "850 ribu" supaya enak didengar.
 - Selalu Bahasa Indonesia santai dan natural, seperti teman dekat; bukan seperti robot atau customer service.
