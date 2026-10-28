@@ -268,7 +268,7 @@ textarea{flex:1;min-width:0;resize:none;border:1px solid var(--line);border-radi
 <script>
 (function(){
 'use strict';
-const APP_VER='3.3.1';
+const APP_VER='3.3.2';
 const $=id=>document.getElementById(id);
 const col=$('col'), main=$('main'), input=$('input'), sendBtn=$('sendBtn'), hint=$('hint');
 
@@ -379,12 +379,15 @@ function pickVoice(){ if(S.voice){ const v=voices.find(v=>v.name===S.voice); if(
 const tts={ queue:[], speaking:false, onIdle:null,
   say(text){ if(!synth||!text.trim()) return; this.queue.push(text.trim()); this.next(); },
   take(){ // gabungkan semua kalimat yang sudah menunggu jadi satu tarikan bicara (maks ~320 karakter supaya Safari tidak memotong)
-    let t=''; while(this.queue.length){ const n=this.queue[0]; if(t&&(t.length+n.length)>320) break; t+=(t?' ':'')+n; this.queue.shift(); } return t; },
+    let t=''; while(this.queue.length){ const n=this.queue[0]; if(t&&(t.length+n.length)>180) break; t+=(t?' ':'')+n; this.queue.shift(); } return t; },
   next(){ if(this.speaking||!this.queue.length) return; const t=this.take(); const u=new SpeechSynthesisUtterance(t); u.lang='id-ID'; const v=pickVoice(); if(v) u.voice=v; u.rate=S.rate||1;
-    this.speaking=true; u.onstart=()=>face.setTalking(true);
-    u.onend=u.onerror=()=>{ this.speaking=false; if(this.queue.length) this.next(); else { face.setTalking(false); if(this.onIdle) this.onIdle(); } };
+    this.speaking=true; this._u=u; let ended=false; u.onstart=()=>face.setTalking(true);
+    const done=()=>{ if(ended) return; ended=true; clearTimeout(this._wd); this.speaking=false; if(this.queue.length) this.next(); else { face.setTalking(false); if(this.onIdle) this.onIdle(); } };
+    u.onend=u.onerror=done;
+    // pengaman: Safari/Chrome kadang tidak memanggil onend → anggap selesai setelah durasi wajar
+    clearTimeout(this._wd); this._wd=setTimeout(()=>{ try{ synth.cancel(); }catch(e){} done(); }, 3000+Math.round(t.length*95/(S.rate||1)));
     synth.speak(u); },
-  stop(){ this.queue=[]; this.speaking=false; try{ synth&&synth.cancel(); }catch(e){} face.setTalking(false); },
+  stop(){ this.queue=[]; this.speaking=false; clearTimeout(this._wd); try{ synth&&synth.cancel(); }catch(e){} face.setTalking(false); },
   idle(){ return !this.speaking&&!this.queue.length; }
 };
 // sentence streamer: feeds TTS as text arrives
@@ -633,7 +636,7 @@ $('speakToggle').onclick=()=>{ S.speak=!S.speak; if(!S.speak) tts.stop(); $('spe
 
 // ---------- mode bicara (layar utama) ----------
 const ring=$('ring'), vState=$('vState'), vYou=$('vYou'), vHer=$('vHer'), talkBtn=$('talkBtn');
-let vm=false, vFails=0;
+let vm=false, vFails=0, vGuard=null;
 const ERR_ID={'not-allowed':'Izin mikrofon ditolak. Safari → Pengaturan → Situs Web → Mikrofon → izinkan untuk situs ini.','service-not-allowed':'Layanan pengenal suara tidak diizinkan. Mac: System Settings → Keyboard → Dictation → nyalakan. iPhone: Pengaturan → Umum → Keyboard → Aktifkan Dikte.','audio-capture':'Mikrofon tidak ditemukan. Cek Pengaturan Sistem → Suara → Input.','network':'Pengenal suara butuh internet dan gagal menghubungi layanannya.','language-not-supported':'Bahasa Indonesia tidak tersedia di pengenal suara browser ini.','no-speech':'Tidak ada suara yang terdengar.','aborted':''};
 function vSet(txt,live){ vState.textContent=txt; vState.classList.toggle('live',!!live); face.listening(txt==='Mendengarkan…'); }
 function vListen(){
@@ -649,7 +652,8 @@ function vListen(){
     if(!vm) return;
     if(!ans){ vSet(lastError||'Ada masalah. Ketuk wajah untuk coba lagi.'); vHer.textContent='Ketuk wajah untuk coba lagi, atau buka ikon keyboard untuk melihat detailnya.'; return; }
     vSet('Berbicara…',true);
-    tts.onIdle=()=>{ tts.onIdle=null; if(vm) setTimeout(vListen,350); };
+    tts.onIdle=()=>{ tts.onIdle=null; clearTimeout(vGuard); if(vm) setTimeout(vListen,350); };
+    clearTimeout(vGuard); vGuard=setTimeout(()=>{ if(vm&&!busy&&!listening){ tts.stop(); vListen(); } },45000);
     if(tts.idle()) tts.onIdle();
   }, s=>{ if(s){ vYou.textContent=s; face.heard(); } });
   if(!ok){ stopTalk(); vSet('Pengenal suara tidak tersedia di browser ini. Pakai Safari, atau ketik lewat tombol keyboard.'); }
