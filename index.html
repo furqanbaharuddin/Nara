@@ -133,77 +133,87 @@ textarea{flex:1;min-width:0;resize:none;border:1px solid var(--line);border-radi
     <div class="ring" id="ring">
       <svg class="face" id="face" viewBox="0 0 120 120" role="img" aria-label="Wajah Nara">
         <defs>
-          <radialGradient id="skinG" cx="50%" cy="35%" r="70%"><stop offset="0" stop-color="#fff6ef"/><stop offset=".7" stop-color="#f9e4d6"/><stop offset="1" stop-color="#eac6b3"/></radialGradient>
-          <linearGradient id="hairBack" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#eef0f6"/><stop offset=".55" stop-color="#d3d7e6"/><stop offset=".8" stop-color="#95a3e0"/><stop offset="1" stop-color="#5468cf"/></linearGradient>
-          <linearGradient id="hairFront" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f7f8fc"/><stop offset=".6" stop-color="#dfe2ee"/><stop offset="1" stop-color="#b7bedc"/></linearGradient>
-          <linearGradient id="hairShade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9aa0bd" stop-opacity="0"/><stop offset="1" stop-color="#8a90b4" stop-opacity=".55"/></linearGradient>
-          <radialGradient id="irisG" cx="50%" cy="30%" r="70%"><stop offset="0" stop-color="#b7c3ff"/><stop offset=".45" stop-color="#6d7ce6"/><stop offset=".8" stop-color="#3f44a6"/><stop offset="1" stop-color="#262866"/></radialGradient>
-          <radialGradient id="blushG"><stop offset="0" stop-color="#f29aa0" stop-opacity=".55"/><stop offset="1" stop-color="#f29aa0" stop-opacity="0"/></radialGradient>
+          <radialGradient id="skinG" cx="50%" cy="35%" r="70%"><stop offset="0" stop-color="#fff8f2"/><stop offset=".7" stop-color="#fbe7da"/><stop offset="1" stop-color="#efcdb9"/></radialGradient>
+          <linearGradient id="hairBack" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f3f4f8"/><stop offset=".5" stop-color="#dcdfea"/><stop offset=".78" stop-color="#9fabe4"/><stop offset="1" stop-color="#4f63cf"/></linearGradient>
+          <linearGradient id="hairFront" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fafbfe"/><stop offset=".7" stop-color="#e4e7f1"/><stop offset="1" stop-color="#c3c9e3"/></linearGradient>
+          <linearGradient id="strandDark" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b9bfd8" stop-opacity="0"/><stop offset="1" stop-color="#9aa3cf" stop-opacity=".7"/></linearGradient>
+          <radialGradient id="irisG" cx="50%" cy="28%" r="72%"><stop offset="0" stop-color="#cfd8ff"/><stop offset=".35" stop-color="#8b97f0"/><stop offset=".7" stop-color="#5a60c9"/><stop offset="1" stop-color="#2a2c74"/></radialGradient>
+          <radialGradient id="blushG"><stop offset="0" stop-color="#f4a0a8" stop-opacity=".6"/><stop offset="1" stop-color="#f4a0a8" stop-opacity="0"/></radialGradient>
           <filter id="soft" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="2"/></filter>
           <filter id="soft1" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="1"/></filter>
-          <clipPath id="faceClip"><path d="M60 20 C79 20 89 35 89 54 C89 74 77 94 60 98 C43 94 31 74 31 54 C31 35 41 20 60 20 Z"/></clipPath>
+          <clipPath id="faceClip"><path d="M60 22 C77 22 86 36 86 54 C86 72 76 90 60 97 C44 90 34 72 34 54 C34 36 43 22 60 22 Z"/></clipPath>
         </defs>
         <g class="face-float">
-          <!-- rambut belakang panjang bergelombang -->
-          <path d="M22 50 C18 18 38 4 60 4 C82 4 102 18 98 50 C100 66 106 84 112 100 C106 104 100 100 98 108 C94 102 90 112 86 106 C80 114 74 104 70 112 L50 112 C46 104 40 114 34 106 C30 112 26 102 22 108 C20 100 14 104 8 100 C14 84 20 66 22 50 Z" fill="url(#hairBack)"/>
-          <!-- leher & kaus -->
-          <path d="M51 88 L69 88 L71 104 C82 104 92 108 100 120 L20 120 C28 108 38 104 49 104 Z" fill="url(#skinG)"/>
-          <path d="M51 88 L69 88 L69 100 C64 103 56 103 51 100 Z" fill="#d9b7a4" opacity=".55" filter="url(#soft1)"/>
-          <path d="M30 120 C36 108 46 102 60 102 C74 102 84 108 90 120 Z" fill="#ffffff"/>
-          <path d="M44 106 C50 112 70 112 76 106" fill="none" stroke="#d8dbe6" stroke-width="1.2"/>
-          <!-- wajah -->
-          <path d="M60 20 C79 20 89 35 89 54 C89 74 77 94 60 98 C43 94 31 74 31 54 C31 35 41 20 60 20 Z" fill="url(#skinG)"/>
+          <!-- rambut belakang: tebal, mengembang, ujung runcing -->
+          <path d="M26 46 C20 16 40 2 60 2 C80 2 100 16 94 46 C100 58 110 70 116 86 C110 84 108 92 112 100 C104 96 100 106 96 112 C90 104 86 114 80 108 C76 116 70 108 66 114 L54 114 C50 108 44 116 40 108 C34 114 30 104 24 112 C20 106 16 96 8 100 C12 92 10 84 4 86 C10 70 20 58 26 46 Z" fill="url(#hairBack)"/>
+          <!-- leher & kaus putih -->
+          <path d="M52 90 L68 90 L69 104 C80 104 90 108 98 120 L22 120 C30 108 40 104 51 104 Z" fill="url(#skinG)"/>
+          <path d="M52 90 L68 90 L68 100 C64 103 56 103 52 100 Z" fill="#dcb8a6" opacity=".5" filter="url(#soft1)"/>
+          <path d="M28 120 C34 108 46 102 60 102 C74 102 86 108 92 120 Z" fill="#ffffff"/>
+          <path d="M46 105 C52 110 68 110 74 105" fill="none" stroke="#d9dce8" stroke-width="1.2"/>
+          <!-- wajah tirus, dagu lancip -->
+          <path d="M60 22 C77 22 86 36 86 54 C86 72 76 90 60 97 C44 90 34 72 34 54 C34 36 43 22 60 22 Z" fill="url(#skinG)"/>
           <g clip-path="url(#faceClip)">
-            <ellipse cx="60" cy="94" rx="24" ry="9" fill="#d9a994" opacity=".35" filter="url(#soft)"/>
-            <path d="M31 44 C38 32 48 26 60 26 C72 26 82 32 89 44 L89 28 L31 28 Z" fill="#8f94b6" opacity=".35" filter="url(#soft)"/>
+            <ellipse cx="60" cy="93" rx="22" ry="9" fill="#dcae9c" opacity=".3" filter="url(#soft)"/>
+            <path d="M34 46 C40 34 50 28 60 28 C70 28 80 34 86 46 L86 28 L34 28 Z" fill="#9aa1c4" opacity=".35" filter="url(#soft)"/>
+            <ellipse cx="60" cy="40" rx="18" ry="8" fill="#ffffff" opacity=".25" filter="url(#soft)"/>
           </g>
-          <!-- pipi merona -->
-          <ellipse class="cheek" data-k="cheekL" cx="40" cy="70" rx="9" ry="5" fill="url(#blushG)" opacity="0"/>
-          <ellipse class="cheek" data-k="cheekR" cx="80" cy="70" rx="9" ry="5" fill="url(#blushG)" opacity="0"/>
-          <!-- hidung kecil -->
-          <path d="M59 70 L61 73" fill="none" stroke="#d6a391" stroke-width="1.2" stroke-linecap="round" opacity=".8"/>
+          <!-- rona di bawah mata -->
+          <ellipse class="cheek" data-k="cheekL" cx="42" cy="69" rx="8" ry="4" fill="url(#blushG)" opacity=".35"/>
+          <ellipse class="cheek" data-k="cheekR" cx="78" cy="69" rx="8" ry="4" fill="url(#blushG)" opacity=".35"/>
+          <!-- hidung mungil -->
+          <path d="M60 70 L61.5 72.5" fill="none" stroke="#dba997" stroke-width="1.1" stroke-linecap="round" opacity=".8"/>
           <!-- alis tipis -->
-          <path class="brow" data-k="browL" d="M35 47 Q43 43 51 46" stroke="#8d93b3" stroke-width="1.8" stroke-linecap="round" fill="none"/>
-          <path class="brow" data-k="browR" d="M69 46 Q77 43 85 47" stroke="#8d93b3" stroke-width="1.8" stroke-linecap="round" fill="none"/>
-          <!-- mata anime besar -->
+          <path class="brow" data-k="browL" d="M37 48 Q44 44 52 47" stroke="#9398b8" stroke-width="1.6" stroke-linecap="round" fill="none"/>
+          <path class="brow" data-k="browR" d="M68 47 Q76 44 83 48" stroke="#9398b8" stroke-width="1.6" stroke-linecap="round" fill="none"/>
+          <!-- mata besar, lembut -->
           <g class="eye" data-k="eyeL">
-            <path d="M35 58 C37 50 50 49 52 58 C51 67 37 68 35 58 Z" fill="#ffffff"/>
+            <path d="M36 59 C38 50 52 50 54 59 C53 69 38 70 36 59 Z" fill="#ffffff"/>
             <g class="pupil" data-k="pupL">
-              <ellipse cx="43.5" cy="59" rx="5.6" ry="7.4" fill="url(#irisG)"/>
-              <ellipse cx="43.5" cy="60" rx="2.6" ry="3.6" fill="#1d1f55"/>
-              <ellipse cx="41" cy="55.5" rx="2.2" ry="2.6" fill="#ffffff"/>
-              <circle cx="46.5" cy="63" r="1.1" fill="#ffffff" opacity=".9"/>
+              <ellipse cx="45" cy="60" rx="6.2" ry="8" fill="url(#irisG)"/>
+              <ellipse cx="45" cy="60" rx="6.2" ry="8" fill="none" stroke="#2a2c74" stroke-width=".8" opacity=".7"/>
+              <ellipse cx="45" cy="61.5" rx="2.8" ry="3.9" fill="#1b1d52"/>
+              <path d="M45 55.5 L46.2 58.5 L45 61.5 L43.8 58.5 Z" fill="#e3e8ff" opacity=".8"/>
+              <ellipse cx="42" cy="56" rx="2.4" ry="2.8" fill="#ffffff"/>
+              <circle cx="48.5" cy="64.5" r="1.3" fill="#ffffff" opacity=".9"/>
             </g>
-            <path d="M34 57 C37 49 50 48 53 57" fill="none" stroke="#2b2b45" stroke-width="2.4" stroke-linecap="round"/>
-            <path d="M34 57 L32 54" fill="none" stroke="#2b2b45" stroke-width="2" stroke-linecap="round"/>
-            <path d="M38 65 C41 66.5 47 66.5 50 64.5" fill="none" stroke="#6d6f8f" stroke-width=".8" opacity=".5"/>
+            <path d="M35 58 C38 48 52 48 55 58" fill="none" stroke="#2a2a46" stroke-width="2.6" stroke-linecap="round"/>
+            <path d="M35 58 C34 56 33 55 32 54" fill="none" stroke="#2a2a46" stroke-width="2" stroke-linecap="round"/>
+            <path d="M51 51 L52.5 48" fill="none" stroke="#2a2a46" stroke-width="1.4" stroke-linecap="round"/>
+            <path d="M38 66.5 C42 68.5 49 68.5 53 66" fill="none" stroke="#7a7d9c" stroke-width=".9" opacity=".55"/>
           </g>
           <g class="eye" data-k="eyeR">
-            <path d="M68 58 C70 49 83 50 85 58 C83 68 69 67 68 58 Z" fill="#ffffff"/>
+            <path d="M66 59 C68 50 82 50 84 59 C82 70 67 69 66 59 Z" fill="#ffffff"/>
             <g class="pupil" data-k="pupR">
-              <ellipse cx="76.5" cy="59" rx="5.6" ry="7.4" fill="url(#irisG)"/>
-              <ellipse cx="76.5" cy="60" rx="2.6" ry="3.6" fill="#1d1f55"/>
-              <ellipse cx="74" cy="55.5" rx="2.2" ry="2.6" fill="#ffffff"/>
-              <circle cx="79.5" cy="63" r="1.1" fill="#ffffff" opacity=".9"/>
+              <ellipse cx="75" cy="60" rx="6.2" ry="8" fill="url(#irisG)"/>
+              <ellipse cx="75" cy="60" rx="6.2" ry="8" fill="none" stroke="#2a2c74" stroke-width=".8" opacity=".7"/>
+              <ellipse cx="75" cy="61.5" rx="2.8" ry="3.9" fill="#1b1d52"/>
+              <path d="M75 55.5 L76.2 58.5 L75 61.5 L73.8 58.5 Z" fill="#e3e8ff" opacity=".8"/>
+              <ellipse cx="72" cy="56" rx="2.4" ry="2.8" fill="#ffffff"/>
+              <circle cx="78.5" cy="64.5" r="1.3" fill="#ffffff" opacity=".9"/>
             </g>
-            <path d="M67 57 C70 48 83 49 86 57" fill="none" stroke="#2b2b45" stroke-width="2.4" stroke-linecap="round"/>
-            <path d="M86 57 L88 54" fill="none" stroke="#2b2b45" stroke-width="2" stroke-linecap="round"/>
-            <path d="M70 64.5 C73 66.5 79 66.5 82 65" fill="none" stroke="#6d6f8f" stroke-width=".8" opacity=".5"/>
+            <path d="M65 58 C68 48 82 48 85 58" fill="none" stroke="#2a2a46" stroke-width="2.6" stroke-linecap="round"/>
+            <path d="M85 58 C86 56 87 55 88 54" fill="none" stroke="#2a2a46" stroke-width="2" stroke-linecap="round"/>
+            <path d="M69 51 L67.5 48" fill="none" stroke="#2a2a46" stroke-width="1.4" stroke-linecap="round"/>
+            <path d="M67 66 C71 68.5 78 68.5 82 66.5" fill="none" stroke="#7a7d9c" stroke-width=".9" opacity=".55"/>
           </g>
           <!-- bibir kecil & mulut -->
-          <path class="lips" data-k="lips" d="M52 82 Q60 87 68 82 Q60 85 52 82 Z" fill="#e9a3a8" opacity=".9"/>
-          <path class="mouth" data-k="mouth" d="M53 82 Q60 86 67 82 Q60 84 53 82 Z" fill="#7a3b46"/>
-          <!-- rambut depan: poni berlapis + helai samping -->
-          <path d="M22 50 C20 26 36 8 60 8 C84 8 100 26 98 50 C96 44 94 40 92 38 C90 50 88 58 86 64 C84 58 84 50 82 44 C78 48 72 50 68 48 C66 42 64 36 62 32 C58 40 54 44 48 46 C44 44 40 42 38 40 C36 48 36 56 34 64 C32 58 30 50 28 42 C26 44 24 48 22 50 Z" fill="url(#hairFront)"/>
-          <path d="M22 50 C20 26 36 8 60 8 C84 8 100 26 98 50 C96 44 94 40 92 38 C90 50 88 58 86 64 C84 58 84 50 82 44 C78 48 72 50 68 48 C66 42 64 36 62 32 C58 40 54 44 48 46 C44 44 40 42 38 40 C36 48 36 56 34 64 C32 58 30 50 28 42 C26 44 24 48 22 50 Z" fill="url(#hairShade)"/>
-          <path d="M52 12 C54 22 56 30 58 36" fill="none" stroke="#c9cee2" stroke-width="1" opacity=".8"/>
-          <path d="M68 12 C66 22 65 30 64 36" fill="none" stroke="#c9cee2" stroke-width="1" opacity=".8"/>
-          <path d="M40 14 C42 24 44 32 46 40" fill="none" stroke="#c9cee2" stroke-width="1" opacity=".7"/>
-          <path d="M80 14 C78 24 76 32 74 40" fill="none" stroke="#c9cee2" stroke-width="1" opacity=".7"/>
-          <path d="M30 20 C40 12 52 10 60 10" fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round" opacity=".55"/>
-          <!-- helai samping panjang di depan telinga -->
-          <path d="M22 50 C20 66 22 84 20 104 C26 100 30 92 32 80 C33 70 30 60 28 52 Z" fill="url(#hairBack)"/>
-          <path d="M98 50 C100 66 98 84 100 104 C94 100 90 92 88 80 C87 70 90 60 92 52 Z" fill="url(#hairBack)"/>
+          <path class="lips" data-k="lips" d="M53 82 Q60 86 67 82 Q60 85 53 82 Z" fill="#eaa7ad" opacity=".9"/>
+          <path class="mouth" data-k="mouth" d="M54 82 Q60 85 66 82 Q60 84 54 82 Z" fill="#7a3b46"/>
+          <!-- poni: berbelah tengah, helai runcing mengarah ke mata -->
+          <path d="M26 46 C22 20 40 6 60 6 C80 6 98 20 94 46 C93 42 91 38 89 36 C90 46 88 54 84 60 C83 52 82 46 80 40 C78 48 75 54 71 58 C70 50 68 42 65 36 C63 44 61 50 59 56 C57 48 55 42 53 36 C51 44 48 52 44 58 C43 50 42 44 40 38 C38 46 34 52 31 58 C30 50 28 44 26 46 Z" fill="url(#hairFront)"/>
+          <path d="M26 46 C22 20 40 6 60 6 C80 6 98 20 94 46 C93 42 91 38 89 36 C90 46 88 54 84 60 C83 52 82 46 80 40 C78 48 75 54 71 58 C70 50 68 42 65 36 C63 44 61 50 59 56 C57 48 55 42 53 36 C51 44 48 52 44 58 C43 50 42 44 40 38 C38 46 34 52 31 58 C30 50 28 44 26 46 Z" fill="url(#strandDark)"/>
+          <path d="M26 46 C22 20 40 6 60 6 C80 6 98 20 94 46 C93 42 91 38 89 36 C90 46 88 54 84 60 C83 52 82 46 80 40 C78 48 75 54 71 58 C70 50 68 42 65 36 C63 44 61 50 59 56 C57 48 55 42 53 36 C51 44 48 52 44 58 C43 50 42 44 40 38 C38 46 34 52 31 58 C30 50 28 44 26 46 Z" fill="none" stroke="url(#hairFront)" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round" opacity=".9"/>
+          <!-- helai poni tambahan yang menyilang -->
+          <path d="M60 8 C52 16 47 26 44 40 C46 30 50 18 60 8 Z" fill="#ffffff" opacity=".5"/>
+          <path d="M60 8 C68 16 73 26 76 40 C74 30 70 18 60 8 Z" fill="#ffffff" opacity=".5"/>
+          <path d="M34 20 C40 14 50 10 60 10" fill="none" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round" opacity=".6"/>
+          <path d="M66 10 C74 12 82 16 88 22" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" opacity=".45"/>
+          <!-- helai samping tebal di depan, mengembang ke luar -->
+          <path d="M26 46 C18 60 14 76 12 96 C18 92 22 86 24 82 C22 90 20 98 22 106 C28 100 32 92 34 84 C34 72 32 58 30 48 Z" fill="url(#hairBack)"/>
+          <path d="M94 46 C102 60 106 76 108 96 C102 92 98 86 96 82 C98 90 100 98 98 106 C92 100 88 92 86 84 C86 72 88 58 90 48 Z" fill="url(#hairBack)"/>
+          <path d="M28 56 C24 70 22 84 20 98" fill="none" stroke="#ffffff" stroke-width="1.2" opacity=".5"/>
+          <path d="M92 56 C96 70 98 84 100 98" fill="none" stroke="#ffffff" stroke-width="1.2" opacity=".5"/>
         </g>
       </svg>
     </div>
@@ -311,7 +321,7 @@ textarea{flex:1;min-width:0;resize:none;border:1px solid var(--line);border-radi
 <script>
 (function(){
 'use strict';
-const APP_VER='1.6.0';
+const APP_VER='1.6.2';
 const $=id=>document.getElementById(id);
 const col=$('col'), main=$('main'), input=$('input'), sendBtn=$('sendBtn'), hint=$('hint');
 
@@ -386,7 +396,7 @@ function applyFace(name){
     el.browR.style.transform=`rotate(${e.brow[1]}deg) translateY(${e.brow[2]}px)`;
     el.eyeL.style.transform=el.eyeR.style.transform=`scaleY(${e.eye})`;
     el.pupL.style.transform=el.pupR.style.transform=`translate(${e.pupil[0]}px,${e.pupil[1]}px)`;
-    el.cheekL.style.opacity=el.cheekR.style.opacity=e.cheek;
+    el.cheekL.style.opacity=el.cheekR.style.opacity=Math.max(.3,e.cheek);
     if(!talking){ el.mouth.setAttribute('d',mouthPath(e.mouth,0)); el.lips&&el.lips.setAttribute('d',lipsPath(e.mouth,0)); }
   });
 }
