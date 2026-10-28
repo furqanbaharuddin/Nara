@@ -249,7 +249,7 @@ textarea{flex:1;min-width:0;resize:none;border:1px solid var(--line);border-radi
 <script>
 (function(){
 'use strict';
-const APP_VER='1.3.1';
+const APP_VER='1.3.2';
 const $=id=>document.getElementById(id);
 const col=$('col'), main=$('main'), input=$('input'), sendBtn=$('sendBtn'), hint=$('hint');
 
@@ -473,8 +473,9 @@ async function askClaude(messages,onText,signal,onSearch){
           if(cb.type==='tool_use') blocks[ev.index]={type:'tool_use',id:cb.id,name:cb.name,json:''};
           else if(cb.type==='server_tool_use'){ blocks[ev.index]={type:'server',raw:{...cb},json:''}; onSearch&&onSearch(true); }
           else if(cb.type==='text') blocks[ev.index]={type:'text',text:''};
+          else if(cb.type==='thinking') blocks[ev.index]={type:'thinking',thinking:'',signature:''};
           else blocks[ev.index]={type:'server',raw:cb,json:null}; }
-        else if(ev.type==='content_block_delta'){ const b=blocks[ev.index]; if(!b) continue; if(ev.delta.type==='text_delta'){ b.text+=ev.delta.text; roundText+=ev.delta.text; onText(fullText+roundText); } else if(ev.delta.type==='input_json_delta'&&b.json!==null){ b.json+=ev.delta.partial_json; } }
+        else if(ev.type==='content_block_delta'){ const b=blocks[ev.index]; if(!b) continue; if(ev.delta.type==='text_delta'){ b.text+=ev.delta.text; roundText+=ev.delta.text; onText(fullText+roundText); } else if(ev.delta.type==='input_json_delta'&&b.json!==null){ b.json+=ev.delta.partial_json; } else if(ev.delta.type==='thinking_delta'&&b.type==='thinking'){ b.thinking+=ev.delta.thinking||''; } else if(ev.delta.type==='signature_delta'&&b.type==='thinking'){ b.signature=ev.delta.signature||''; } }
         else if(ev.type==='message_delta'){ stop=ev.delta.stop_reason; }
         else if(ev.type==='error'){ throw {code:'http',message:ev.error?.message||'stream error'}; } }
     }
@@ -484,8 +485,9 @@ async function askClaude(messages,onText,signal,onSearch){
     const content=blocks.filter(Boolean).map(b=>{
       if(b.type==='text') return {type:'text',text:b.text};
       if(b.type==='tool_use') return {type:'tool_use',id:b.id,name:b.name,input:safeJson(b.json)};
+      if(b.type==='thinking') return b.signature?{type:'thinking',thinking:b.thinking,signature:b.signature}:null;
       const r={...b.raw}; if(b.json!==null) r.input=safeJson(b.json); return r;
-    }).filter(b=>b.type!=='text'||b.text);
+    }).filter(b=>b&&(b.type!=='text'||b.text));
     convo.push({role:'assistant',content});
     const results=[];
     for(const t of toolUses){ const def=TOOLS.find(d=>d.name===t.name); let out; try{ out=def?await def.run(safeJson(t.json)):'Error: tool tidak dikenal'; }catch(e){ out='Error: '+(e.message||e); } results.push({type:'tool_result',tool_use_id:t.id,content:typeof out==='string'?out:JSON.stringify(out)}); }
