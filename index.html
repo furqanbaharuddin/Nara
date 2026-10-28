@@ -249,7 +249,7 @@ textarea{flex:1;min-width:0;resize:none;border:1px solid var(--line);border-radi
 <script>
 (function(){
 'use strict';
-const APP_VER='1.3.0';
+const APP_VER='1.3.1';
 const $=id=>document.getElementById(id);
 const col=$('col'), main=$('main'), input=$('input'), sendBtn=$('sendBtn'), hint=$('hint');
 
@@ -261,7 +261,7 @@ const DEFAULTS={
 };
 let S={...DEFAULTS};
 let history=[];   // {role:'user'|'assistant', content, t}
-let busy=false, abortCtl=null;
+let busy=false, abortCtl=null, lastError='', webSearchOk=true;
 
 // ---------- storage ----------
 const LS='nara-v1';
@@ -460,8 +460,10 @@ async function askClaude(messages,onText,signal,onSearch){
   for(let round=0; round<6; round++){
     const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',signal,
       headers:{'content-type':'application/json','x-api-key':S.apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model,max_tokens:1024,stream:true,system:systemPrompt(),messages:convo,tools:[{type:'web_search_20250305',name:'web_search',max_uses:3,user_location:{type:'approximate',city:'Palu',region:'Sulawesi Tengah',country:'ID',timezone:'Asia/Makassar'}},...TOOLS.map(t=>({name:t.name,description:t.description,input_schema:t.input_schema}))]})});
-    if(!res.ok){ let msg=''; try{ msg=(await res.json()).error?.message||''; }catch(e){} throw {code:res.status===401?'auth':res.status===429?'rate':'http',message:msg||('HTTP '+res.status)}; }
+      body:JSON.stringify({model,max_tokens:1024,stream:true,system:systemPrompt(),messages:convo,tools:[...(webSearchOk?[{type:'web_search_20250305',name:'web_search',max_uses:3,user_location:{type:'approximate',city:'Palu',region:'Sulawesi Tengah',country:'ID',timezone:'Asia/Makassar'}}]:[]),...TOOLS.map(t=>({name:t.name,description:t.description,input_schema:t.input_schema}))]})});
+    if(!res.ok){ let msg=''; try{ msg=(await res.json()).error?.message||''; }catch(e){}
+      if(res.status===400&&webSearchOk&&/web_search|tool/i.test(msg)){ webSearchOk=false; console.warn('web_search dimatikan:',msg); round--; continue; }
+      throw {code:res.status===401?'auth':res.status===429?'rate':res.status===400?'bad':'http',message:msg||('HTTP '+res.status)}; }
     const reader=res.body.getReader(), dec=new TextDecoder(); let buf='', blocks=[], stop=null, roundText='';
     while(true){
       const {value,done}=await reader.read(); if(done) break;
@@ -513,7 +515,7 @@ function bubble(role,text,t){ const d=document.createElement('div'); d.className
 function scroll(){ main.scrollTop=main.scrollHeight; }
 function renderAll(){ col.querySelectorAll('.msg').forEach(e=>e.remove()); $('empty').hidden=history.length>0; history.forEach(m=>bubble(m.role,m.content,m.t)); $('botName').textContent=S.name; document.title=S.name; $('speakToggle').setAttribute('aria-pressed',String(!!S.speak)); setStatus(S.apiKey?'Siap ngobrol':'API key belum diisi (Pengaturan)',!!S.apiKey); }
 function setStatus(txt,on){ $('statusText').textContent=txt; $('statusDot').classList.toggle('off',!on); }
-function friendlyError(e){ const m={no_key:'API key Claude belum diisi. Buka Pengaturan (ikon roda gigi).',auth:'API key ditolak. Periksa lagi di Pengaturan.',rate:'Terlalu banyak permintaan atau saldo API habis. Coba sebentar lagi.'}; if(e&&e.name==='AbortError') return ''; if(e&&e.code&&m[e.code]) return m[e.code]; if(!navigator.onLine) return 'Tidak ada internet.'; console.error(e); return 'Gagal menghubungi Claude: '+((e&&(e.message||e.code))||'coba lagi')+'. Buka Pengaturan → Tes sambungan untuk detailnya.'; }
+function friendlyError(e){ const m={no_key:'API key Claude belum diisi. Buka Pengaturan (ikon roda gigi).',auth:'API key ditolak. Periksa lagi di Pengaturan.',rate:'Terlalu banyak permintaan atau saldo API habis. Coba sebentar lagi.',bad:'Permintaan ditolak Claude: '+(e&&e.message||'')}; if(e&&e.name==='AbortError') return ''; if(e&&e.code&&m[e.code]) return m[e.code]; if(!navigator.onLine) return 'Tidak ada internet.'; console.error(e); return 'Gagal menghubungi Claude: '+((e&&(e.message||e.code))||'coba lagi')+'. Buka Pengaturan → Tes sambungan untuk detailnya.'; }
 
 // ---------- chat ----------
 function turns(){ const t=history.slice(-30).map(m=>({role:m.role,content:m.content})); while(t.length&&t[0].role!=='user') t.shift(); return t; }
@@ -521,7 +523,7 @@ async function send(text,opts){
   opts=opts||{}; text=(text||'').trim(); if(!text||busy) return null;
   input.value=''; autosize(); $('empty').hidden=true;
   history.push({role:'user',content:text,t:Date.now()}); bubble('user',text); touch();
-  busy=true; sendBtn.disabled=true; hint.textContent=''; face.set('berpikir');
+  busy=true; sendBtn.disabled=true; hint.textContent=''; lastError=''; face.set('berpikir');
   const b=bubble('assistant','',Date.now()); b.classList.add('thinking'); b.textContent=S.name+' sedang mengetik…';
   abortCtl=new AbortController(); let moodSet=false; let body='';
   const speaker=makeSpeaker(opts.speak||S.speak);
@@ -530,7 +532,7 @@ async function send(text,opts){
     const full=await askClaude(turns(),raw=>{ const p=stripMood(raw); if(p.mood&&!moodSet){ face.set(p.mood); moodSet=true; } if(p.body){ body=p.body; b.classList.remove('thinking'); b.textContent=body; opts.onText&&opts.onText(body); speaker.feed(body); scroll(); } },abortCtl.signal,()=>{ face.set('berpikir'); if(opts.onSearch) opts.onSearch(); else hint.textContent='Mencari di internet…'; });
     const p=stripMood(full); if(p.mood&&!moodSet) face.set(p.mood); body=p.body.trim()||full.trim();
   }catch(e){
-    const msg=friendlyError(e); if(!body){ b.remove(); if(msg){ bubble('sys',msg); face.set('bingung'); } } else if(msg) hint.textContent=msg;
+    const msg=friendlyError(e); lastError=msg; if(!body){ b.remove(); if(msg){ bubble('sys',msg); face.set('bingung'); } } else if(msg) hint.textContent=msg;
   }
   busy=false; sendBtn.disabled=false; abortCtl=null;
   if(body){ b.classList.remove('thinking'); b.textContent=body; const s=document.createElement('span'); s.className='time'; s.textContent=fmtTime(Date.now()); b.appendChild(s);
@@ -561,7 +563,7 @@ function vListen(){
     vYou.textContent='“'+text+'”'; vHer.textContent=''; vSet('Berpikir…');
     const ans=await send(text,{speak:true,onSearch:()=>vSet('Mencari di internet…',true),onText:t=>{ vHer.textContent=t; vHer.scrollTop=vHer.scrollHeight; }});
     if(!vm) return;
-    if(!ans){ vSet('Ada masalah. Ketuk wajah untuk coba lagi.'); return; }
+    if(!ans){ vSet(lastError||'Ada masalah. Ketuk wajah untuk coba lagi.'); vHer.textContent='Ketuk wajah untuk coba lagi, atau buka ikon keyboard untuk melihat detailnya.'; return; }
     vSet('Berbicara…',true);
     tts.onIdle=()=>{ tts.onIdle=null; if(vm) setTimeout(vListen,350); };
     if(tts.idle()) tts.onIdle();
