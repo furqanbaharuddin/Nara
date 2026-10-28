@@ -133,67 +133,77 @@ textarea{flex:1;min-width:0;resize:none;border:1px solid var(--line);border-radi
     <div class="ring" id="ring">
       <svg class="face" id="face" viewBox="0 0 120 120" role="img" aria-label="Wajah Nara">
         <defs>
-          <radialGradient id="skinG" cx="46%" cy="36%" r="68%"><stop offset="0" stop-color="#e2b07e"/><stop offset=".55" stop-color="#c98d5c"/><stop offset="1" stop-color="#9a6238"/></radialGradient>
-          <linearGradient id="hijabG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#b98d9a"/><stop offset=".45" stop-color="#9c6f80"/><stop offset="1" stop-color="#6f4a5c"/></linearGradient>
-          <linearGradient id="hijabInner" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d6b2bd"/><stop offset="1" stop-color="#8e6274"/></linearGradient>
-          <linearGradient id="hijabShine" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#ffffff" stop-opacity="0"/><stop offset=".5" stop-color="#ffffff" stop-opacity=".22"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/></linearGradient>
-          <radialGradient id="blushG"><stop offset="0" stop-color="#e2746a" stop-opacity=".55"/><stop offset="1" stop-color="#e2746a" stop-opacity="0"/></radialGradient>
-          <radialGradient id="irisG" cx="40%" cy="35%" r="70%"><stop offset="0" stop-color="#6b3d22"/><stop offset=".7" stop-color="#3a2113"/><stop offset="1" stop-color="#1b0f08"/></radialGradient>
-          <radialGradient id="lipG" cx="50%" cy="30%" r="70%"><stop offset="0" stop-color="#c0715f"/><stop offset="1" stop-color="#8e4a3e"/></radialGradient>
-          <filter id="soft" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="2.2"/></filter>
-          <filter id="soft1" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="1.1"/></filter>
-          <clipPath id="faceClip"><path d="M60 15 C81 15 92 34 92 56 C92 80 79 101 60 101 C41 101 28 80 28 56 C28 34 39 15 60 15 Z"/></clipPath>
+          <radialGradient id="skinG" cx="50%" cy="35%" r="70%"><stop offset="0" stop-color="#fff6ef"/><stop offset=".7" stop-color="#f9e4d6"/><stop offset="1" stop-color="#eac6b3"/></radialGradient>
+          <linearGradient id="hairBack" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#eef0f6"/><stop offset=".55" stop-color="#d3d7e6"/><stop offset=".8" stop-color="#95a3e0"/><stop offset="1" stop-color="#5468cf"/></linearGradient>
+          <linearGradient id="hairFront" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f7f8fc"/><stop offset=".6" stop-color="#dfe2ee"/><stop offset="1" stop-color="#b7bedc"/></linearGradient>
+          <linearGradient id="hairShade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9aa0bd" stop-opacity="0"/><stop offset="1" stop-color="#8a90b4" stop-opacity=".55"/></linearGradient>
+          <radialGradient id="irisG" cx="50%" cy="30%" r="70%"><stop offset="0" stop-color="#b7c3ff"/><stop offset=".45" stop-color="#6d7ce6"/><stop offset=".8" stop-color="#3f44a6"/><stop offset="1" stop-color="#262866"/></radialGradient>
+          <radialGradient id="blushG"><stop offset="0" stop-color="#f29aa0" stop-opacity=".55"/><stop offset="1" stop-color="#f29aa0" stop-opacity="0"/></radialGradient>
+          <filter id="soft" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="2"/></filter>
+          <filter id="soft1" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="1"/></filter>
+          <clipPath id="faceClip"><path d="M60 20 C79 20 89 35 89 54 C89 74 77 94 60 98 C43 94 31 74 31 54 C31 35 41 20 60 20 Z"/></clipPath>
         </defs>
         <g class="face-float">
-          <!-- juntaian hijab belakang & bahu -->
-          <path d="M18 56 C14 24 34 6 60 6 C86 6 106 24 102 56 L108 120 L12 120 Z" fill="url(#hijabG)"/>
-          <path d="M12 120 C20 106 30 100 42 98 L78 98 C90 100 100 106 108 120 Z" fill="#5e3e4e" opacity=".5" filter="url(#soft)"/>
+          <!-- rambut belakang panjang bergelombang -->
+          <path d="M22 50 C18 18 38 4 60 4 C82 4 102 18 98 50 C100 66 106 84 112 100 C106 104 100 100 98 108 C94 102 90 112 86 106 C80 114 74 104 70 112 L50 112 C46 104 40 114 34 106 C30 112 26 102 22 108 C20 100 14 104 8 100 C14 84 20 66 22 50 Z" fill="url(#hairBack)"/>
+          <!-- leher & kaus -->
+          <path d="M51 88 L69 88 L71 104 C82 104 92 108 100 120 L20 120 C28 108 38 104 49 104 Z" fill="url(#skinG)"/>
+          <path d="M51 88 L69 88 L69 100 C64 103 56 103 51 100 Z" fill="#d9b7a4" opacity=".55" filter="url(#soft1)"/>
+          <path d="M30 120 C36 108 46 102 60 102 C74 102 84 108 90 120 Z" fill="#ffffff"/>
+          <path d="M44 106 C50 112 70 112 76 106" fill="none" stroke="#d8dbe6" stroke-width="1.2"/>
           <!-- wajah -->
-          <path d="M60 15 C81 15 92 34 92 56 C92 80 79 101 60 101 C41 101 28 80 28 56 C28 34 39 15 60 15 Z" fill="url(#skinG)"/>
+          <path d="M60 20 C79 20 89 35 89 54 C89 74 77 94 60 98 C43 94 31 74 31 54 C31 35 41 20 60 20 Z" fill="url(#skinG)"/>
           <g clip-path="url(#faceClip)">
-            <ellipse cx="60" cy="32" rx="20" ry="11" fill="#ffffff" opacity=".10" filter="url(#soft)"/>
-            <ellipse cx="60" cy="96" rx="28" ry="11" fill="#5c3418" opacity=".35" filter="url(#soft)"/>
-            <ellipse cx="35" cy="62" rx="7" ry="22" fill="#6b3d1e" opacity=".25" filter="url(#soft)"/>
-            <ellipse cx="85" cy="62" rx="7" ry="22" fill="#6b3d1e" opacity=".25" filter="url(#soft)"/>
-            <path d="M28 44 C36 32 48 27 60 27 C72 27 84 32 92 44 L92 30 L28 30 Z" fill="#4a2f3b" opacity=".35" filter="url(#soft)"/>
+            <ellipse cx="60" cy="94" rx="24" ry="9" fill="#d9a994" opacity=".35" filter="url(#soft)"/>
+            <path d="M31 44 C38 32 48 26 60 26 C72 26 82 32 89 44 L89 28 L31 28 Z" fill="#8f94b6" opacity=".35" filter="url(#soft)"/>
           </g>
           <!-- pipi merona -->
-          <circle class="cheek" data-k="cheekL" cx="39" cy="70" r="9" fill="url(#blushG)" opacity="0"/>
-          <circle class="cheek" data-k="cheekR" cx="81" cy="70" r="9" fill="url(#blushG)" opacity="0"/>
-          <!-- hidung -->
-          <path d="M57 56 C55 64 53 68 54 72 C56 75 64 75 66 72 C67 68 65 64 63 56" fill="none" stroke="#8a552f" stroke-width="1.1" stroke-linecap="round" opacity=".3"/>
-          <path d="M54 72 C56 75 64 75 66 72" fill="none" stroke="#7a4524" stroke-width="1.3" stroke-linecap="round" opacity=".45"/>
-          <ellipse cx="60" cy="62" rx="3" ry="9" fill="#ffffff" opacity=".12" filter="url(#soft1)"/>
-          <!-- alis -->
-          <path class="brow" data-k="browL" d="M33 44 Q41 38 50 42" stroke="#1f1310" stroke-width="3" stroke-linecap="round" fill="none"/>
-          <path class="brow" data-k="browR" d="M70 42 Q79 38 87 44" stroke="#1f1310" stroke-width="3" stroke-linecap="round" fill="none"/>
-          <!-- mata -->
+          <ellipse class="cheek" data-k="cheekL" cx="40" cy="70" rx="9" ry="5" fill="url(#blushG)" opacity="0"/>
+          <ellipse class="cheek" data-k="cheekR" cx="80" cy="70" rx="9" ry="5" fill="url(#blushG)" opacity="0"/>
+          <!-- hidung kecil -->
+          <path d="M59 70 L61 73" fill="none" stroke="#d6a391" stroke-width="1.2" stroke-linecap="round" opacity=".8"/>
+          <!-- alis tipis -->
+          <path class="brow" data-k="browL" d="M35 47 Q43 43 51 46" stroke="#8d93b3" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+          <path class="brow" data-k="browR" d="M69 46 Q77 43 85 47" stroke="#8d93b3" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+          <!-- mata anime besar -->
           <g class="eye" data-k="eyeL">
-            <path d="M34 56 C38 50 46 50 49 56 C46 61 38 61 34 56 Z" fill="#f6efe8"/>
-            <g class="pupil" data-k="pupL"><circle cx="41.5" cy="56.3" r="4.1" fill="url(#irisG)"/><circle cx="41.5" cy="56.3" r="1.9" fill="#0b0604"/><circle cx="40.1" cy="54.9" r="1.1" fill="#ffffff" opacity=".9"/></g>
-            <path d="M34 56 C38 50 46 50 49 56" fill="none" stroke="#2a1711" stroke-width="1.7" stroke-linecap="round"/>
-            <path d="M35.5 57.5 C38.5 60.5 45 60.5 48 57.5" fill="none" stroke="#7a4a2c" stroke-width=".7" opacity=".6"/>
+            <path d="M35 58 C37 50 50 49 52 58 C51 67 37 68 35 58 Z" fill="#ffffff"/>
+            <g class="pupil" data-k="pupL">
+              <ellipse cx="43.5" cy="59" rx="5.6" ry="7.4" fill="url(#irisG)"/>
+              <ellipse cx="43.5" cy="60" rx="2.6" ry="3.6" fill="#1d1f55"/>
+              <ellipse cx="41" cy="55.5" rx="2.2" ry="2.6" fill="#ffffff"/>
+              <circle cx="46.5" cy="63" r="1.1" fill="#ffffff" opacity=".9"/>
+            </g>
+            <path d="M34 57 C37 49 50 48 53 57" fill="none" stroke="#2b2b45" stroke-width="2.4" stroke-linecap="round"/>
+            <path d="M34 57 L32 54" fill="none" stroke="#2b2b45" stroke-width="2" stroke-linecap="round"/>
+            <path d="M38 65 C41 66.5 47 66.5 50 64.5" fill="none" stroke="#6d6f8f" stroke-width=".8" opacity=".5"/>
           </g>
           <g class="eye" data-k="eyeR">
-            <path d="M71 56 C74 50 82 50 86 56 C82 61 74 61 71 56 Z" fill="#f6efe8"/>
-            <g class="pupil" data-k="pupR"><circle cx="78.5" cy="56.3" r="4.1" fill="url(#irisG)"/><circle cx="78.5" cy="56.3" r="1.9" fill="#0b0604"/><circle cx="77.1" cy="54.9" r="1.1" fill="#ffffff" opacity=".9"/></g>
-            <path d="M71 56 C74 50 82 50 86 56" fill="none" stroke="#2a1711" stroke-width="1.7" stroke-linecap="round"/>
-            <path d="M72 57.5 C75 60.5 81.5 60.5 84.5 57.5" fill="none" stroke="#7a4a2c" stroke-width=".7" opacity=".6"/>
+            <path d="M68 58 C70 49 83 50 85 58 C83 68 69 67 68 58 Z" fill="#ffffff"/>
+            <g class="pupil" data-k="pupR">
+              <ellipse cx="76.5" cy="59" rx="5.6" ry="7.4" fill="url(#irisG)"/>
+              <ellipse cx="76.5" cy="60" rx="2.6" ry="3.6" fill="#1d1f55"/>
+              <ellipse cx="74" cy="55.5" rx="2.2" ry="2.6" fill="#ffffff"/>
+              <circle cx="79.5" cy="63" r="1.1" fill="#ffffff" opacity=".9"/>
+            </g>
+            <path d="M67 57 C70 48 83 49 86 57" fill="none" stroke="#2b2b45" stroke-width="2.4" stroke-linecap="round"/>
+            <path d="M86 57 L88 54" fill="none" stroke="#2b2b45" stroke-width="2" stroke-linecap="round"/>
+            <path d="M70 64.5 C73 66.5 79 66.5 82 65" fill="none" stroke="#6d6f8f" stroke-width=".8" opacity=".5"/>
           </g>
-          <!-- bibir & mulut -->
-          <path class="lips" data-k="lips" d="M43 82 Q60 92 77 82 Q60 88 43 82 Z" fill="url(#lipG)"/>
-          <path class="mouth" data-k="mouth" d="M45 82 Q60 90 75 82 Q60 86 45 82 Z" fill="#4a1f1a"/>
-          <!-- hijab depan: bingkai wajah (lubang wajah dengan evenodd) -->
-          <path fill-rule="evenodd" fill="url(#hijabInner)" d="M18 60 C14 24 34 6 60 6 C86 6 106 24 102 60 C104 84 96 100 82 108 C72 113 48 113 38 108 C24 100 16 84 18 60 Z M60 17 C80 17 90 34 90 56 C90 79 78 99 60 99 C42 99 30 79 30 56 C30 34 40 17 60 17 Z"/>
-          <!-- lipatan & kilau kain -->
-          <path d="M22 44 C30 26 44 16 60 14" fill="none" stroke="url(#hijabShine)" stroke-width="5" stroke-linecap="round"/>
-          <path d="M26 68 C24 84 30 98 40 106" fill="none" stroke="#5e3e4e" stroke-width="1.2" opacity=".5"/>
-          <path d="M94 68 C96 84 90 98 80 106" fill="none" stroke="#5e3e4e" stroke-width="1.2" opacity=".5"/>
-          <path d="M34 20 C44 12 56 10 66 10" fill="none" stroke="#5e3e4e" stroke-width="1" opacity=".35"/>
-          <path d="M88 104 C98 110 104 116 108 120" fill="none" stroke="#5e3e4e" stroke-width="1.2" opacity=".5"/>
-          <path d="M32 104 C22 110 16 116 12 120" fill="none" stroke="#5e3e4e" stroke-width="1.2" opacity=".5"/>
-          <!-- bayangan tepi hijab ke wajah -->
-          <path d="M60 17 C80 17 90 34 90 56 C90 79 78 99 60 99 C42 99 30 79 30 56 C30 34 40 17 60 17 Z" fill="none" stroke="#3b2430" stroke-width="2.4" opacity=".28" filter="url(#soft1)"/>
+          <!-- bibir kecil & mulut -->
+          <path class="lips" data-k="lips" d="M52 82 Q60 87 68 82 Q60 85 52 82 Z" fill="#e9a3a8" opacity=".9"/>
+          <path class="mouth" data-k="mouth" d="M53 82 Q60 86 67 82 Q60 84 53 82 Z" fill="#7a3b46"/>
+          <!-- rambut depan: poni berlapis + helai samping -->
+          <path d="M22 50 C20 26 36 8 60 8 C84 8 100 26 98 50 C96 44 94 40 92 38 C90 50 88 58 86 64 C84 58 84 50 82 44 C78 48 72 50 68 48 C66 42 64 36 62 32 C58 40 54 44 48 46 C44 44 40 42 38 40 C36 48 36 56 34 64 C32 58 30 50 28 42 C26 44 24 48 22 50 Z" fill="url(#hairFront)"/>
+          <path d="M22 50 C20 26 36 8 60 8 C84 8 100 26 98 50 C96 44 94 40 92 38 C90 50 88 58 86 64 C84 58 84 50 82 44 C78 48 72 50 68 48 C66 42 64 36 62 32 C58 40 54 44 48 46 C44 44 40 42 38 40 C36 48 36 56 34 64 C32 58 30 50 28 42 C26 44 24 48 22 50 Z" fill="url(#hairShade)"/>
+          <path d="M52 12 C54 22 56 30 58 36" fill="none" stroke="#c9cee2" stroke-width="1" opacity=".8"/>
+          <path d="M68 12 C66 22 65 30 64 36" fill="none" stroke="#c9cee2" stroke-width="1" opacity=".8"/>
+          <path d="M40 14 C42 24 44 32 46 40" fill="none" stroke="#c9cee2" stroke-width="1" opacity=".7"/>
+          <path d="M80 14 C78 24 76 32 74 40" fill="none" stroke="#c9cee2" stroke-width="1" opacity=".7"/>
+          <path d="M30 20 C40 12 52 10 60 10" fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round" opacity=".55"/>
+          <!-- helai samping panjang di depan telinga -->
+          <path d="M22 50 C20 66 22 84 20 104 C26 100 30 92 32 80 C33 70 30 60 28 52 Z" fill="url(#hairBack)"/>
+          <path d="M98 50 C100 66 98 84 100 104 C94 100 90 92 88 80 C87 70 90 60 92 52 Z" fill="url(#hairBack)"/>
         </g>
       </svg>
     </div>
@@ -301,13 +311,13 @@ textarea{flex:1;min-width:0;resize:none;border:1px solid var(--line);border-radi
 <script>
 (function(){
 'use strict';
-const APP_VER='1.5.0';
+const APP_VER='1.6.0';
 const $=id=>document.getElementById(id);
 const col=$('col'), main=$('main'), input=$('input'), sendBtn=$('sendBtn'), hint=$('hint');
 
 const DEFAULTS={
   apiKey:'', modelQuick:'claude-haiku-5-5', modelFull:'claude-sonnet-5-5', quick:true,
-  name:'Nara', persona:'Perempuan berhijab. Hangat, santai, cerdas, sopan, dan jujur. Bicara seperti sahabat yang bisa diandalkan, bukan seperti robot. Panggil saya Furqan.',
+  name:'Nara', persona:'Perempuan muda, ceria tapi tenang. Hangat, cerdas, dan jujur. Bicara seperti sahabat yang bisa diandalkan, bukan seperti robot. Panggil saya Furqan.',
   notes:'', summary:'', voice:'', rate:1, speak:true,
   kasirUrl:'', kasirKey:'', syncUrl:'', syncKey:'', requests:[], updatedAt:0
 };
@@ -354,21 +364,21 @@ function makeFace(svg){
   return el;
 }
 const EXP={
-  netral:   {brow:[0,0,0],   eye:1,    pupil:[0,0],  mouth:{w:30,y:82,c:4,o:1.5},   cheek:0,   label:'siap'},
-  senang:   {brow:[-4,4,-2], eye:.95,  pupil:[0,0],  mouth:{w:34,y:81,c:10,o:2.5},  cheek:.35, label:'senang'},
-  tertawa:  {brow:[-6,6,-3], eye:.3,   pupil:[0,0],  mouth:{w:34,y:80,c:8,o:12},  cheek:.4,  label:'tertawa'},
-  sedih:    {brow:[16,-16,-1],eye:.8,  pupil:[0,2],  mouth:{w:26,y:85,c:-6,o:1.5},  cheek:0,   label:'sedih'},
-  kaget:    {brow:[0,0,-7],  eye:1.25, pupil:[0,0],  mouth:{w:16,y:82,c:0,o:12},  cheek:.2,  label:'kaget'},
-  berpikir: {brow:[-10,10,-3],eye:.9,  pupil:[4,-4], mouth:{w:20,y:83,c:-2,o:1},  cheek:0,   label:'berpikir…'},
-  peduli:   {brow:[9,-9,-2], eye:.92,  pupil:[0,0],  mouth:{w:28,y:82,c:5,o:1.5},   cheek:.25, label:'peduli'},
-  mendengar:{brow:[0,0,-5],  eye:1.1,  pupil:[0,-1], mouth:{w:14,y:82,c:2,o:5},   cheek:0,   label:'mendengarkan'},
-  bingung:  {brow:[-12,4,-2],eye:.9,   pupil:[-3,0], mouth:{w:22,y:83,c:-1,o:1.5},  cheek:0,   label:'bingung'}
+  netral:   {brow:[0,0,0],   eye:1,    pupil:[0,0],  mouth:{w:15,y:82,c:4,o:1.5},   cheek:0,   label:'siap'},
+  senang:   {brow:[-4,4,-2], eye:.95,  pupil:[0,0],  mouth:{w:17,y:81,c:10,o:2.5},  cheek:.35, label:'senang'},
+  tertawa:  {brow:[-6,6,-3], eye:.3,   pupil:[0,0],  mouth:{w:17,y:80,c:8,o:12},  cheek:.4,  label:'tertawa'},
+  sedih:    {brow:[16,-16,-1],eye:.8,  pupil:[0,2],  mouth:{w:13,y:85,c:-6,o:1.5},  cheek:0,   label:'sedih'},
+  kaget:    {brow:[0,0,-7],  eye:1.25, pupil:[0,0],  mouth:{w:8,y:82,c:0,o:12},  cheek:.2,  label:'kaget'},
+  berpikir: {brow:[-10,10,-3],eye:.9,  pupil:[4,-4], mouth:{w:10,y:83,c:-2,o:1},  cheek:0,   label:'berpikir…'},
+  peduli:   {brow:[9,-9,-2], eye:.92,  pupil:[0,0],  mouth:{w:14,y:82,c:5,o:1.5},   cheek:.25, label:'peduli'},
+  mendengar:{brow:[0,0,-5],  eye:1.1,  pupil:[0,-1], mouth:{w:7,y:82,c:2,o:5},   cheek:0,   label:'mendengarkan'},
+  bingung:  {brow:[-12,4,-2],eye:.9,   pupil:[-3,0], mouth:{w:11,y:83,c:-1,o:1.5},  cheek:0,   label:'bingung'}
 };
 const ALIAS={bahagia:'senang',gembira:'senang',senyum:'senang',lucu:'tertawa',haha:'tertawa',murung:'sedih',kecewa:'sedih',terkejut:'kaget',wow:'kaget',mikir:'berpikir',penasaran:'berpikir',empati:'peduli',perhatian:'peduli',biasa:'netral',tenang:'netral',heran:'bingung',ragu:'bingung'};
 const faces=[makeFace($('face'))];
 let cur='netral', talking=false;
 function mouthPath(m,extra){ const x1=60-m.w/2,x2=60+m.w/2,o=m.o+extra; return `M${x1} ${m.y} Q60 ${m.y+m.c} ${x2} ${m.y} Q60 ${m.y+m.c+o} ${x1} ${m.y} Z`; }
-function lipsPath(m,extra){ const x1=60-m.w/2-3,x2=60+m.w/2+3,o=m.o+extra; return `M${x1} ${m.y} Q60 ${m.y+m.c-3.5} ${x2} ${m.y} Q60 ${m.y+m.c+o+3.5} ${x1} ${m.y} Z`; }
+function lipsPath(m,extra){ const x1=60-m.w/2-1.5,x2=60+m.w/2+1.5,o=m.o+extra; return `M${x1} ${m.y} Q60 ${m.y+m.c-1.5} ${x2} ${m.y} Q60 ${m.y+m.c+o+1.5} ${x1} ${m.y} Z`; }
 function applyFace(name){
   const e=EXP[name]||EXP.netral; cur=EXP[name]?name:'netral';
   faces.forEach(el=>{
@@ -483,7 +493,7 @@ const TOOLS=[
 // ---------- prompt ----------
 function systemPrompt(){
   const now=new Date().toLocaleString('id-ID',{weekday:'long',day:'numeric',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'});
-  return `Kamu adalah ${S.name}, perempuan berhijab, asisten pribadi Furqan. Furqan adalah pemilik studio foto PURE MOTRET di Kota Palu, Sulawesi Tengah, dengan dua cabang: S.Parman (kode SP) dan Pue Bongo (kode PB). Asisten keuangannya bernama Riang (di S.Parman).
+  return `Kamu adalah ${S.name}, perempuan muda, asisten pribadi Furqan. Furqan adalah pemilik studio foto PURE MOTRET di Kota Palu, Sulawesi Tengah, dengan dua cabang: S.Parman (kode SP) dan Pue Bongo (kode PB). Asisten keuangannya bernama Riang (di S.Parman).
 Kepribadian dan gaya bicaramu: ${S.persona}
 Sekarang: ${now} (WITA). Tanggal hari ini: ${ymd(new Date())}.
 
