@@ -230,6 +230,8 @@ textarea{flex:1;min-width:0;resize:none;border:1px solid var(--line);border-radi
     <div class="field"><label for="fName">Nama asisten</label><input id="fName"></div>
     <div class="field"><label for="fPersona">Kepribadian &amp; gaya bicara</label><textarea id="fPersona"></textarea></div>
     <div class="field"><label for="fNotes">Catatan yang harus diingat</label><textarea id="fNotes" placeholder="Nama orang, jadwal, harga, aturan. Dia juga menambah sendiri kalau Anda bilang &quot;ingat ya…&quot;"></textarea></div>
+    <div class="field"><label for="fMinat">Minat untuk kabar di laporan pagi</label><input id="fMinat" placeholder="mis. fotografi, kecerdasan buatan, peluang usaha di Palu"></div>
+    <div class="field"><label for="fKnow">Pengetahuan yang sudah dipelajari Nara (otomatis)</label><textarea id="fKnow" readonly placeholder="Bilang: Nara, pelajari tentang …"></textarea><div style="margin-top:8px"><button class="btn danger" id="clearKnowBtn" type="button">Hapus semua pengetahuan</button></div></div>
     <div class="field"><label for="fSummary">Ringkasan obrolan lama (otomatis)</label><textarea id="fSummary" placeholder="Terisi sendiri saat obrolan sudah panjang."></textarea></div>
 
     <h3>Suara</h3>
@@ -273,19 +275,19 @@ textarea{flex:1;min-width:0;resize:none;border:1px solid var(--line);border-radi
 <script>
 (function(){
 'use strict';
-const APP_VER='3.6.0';
+const APP_VER='3.7.0';
 const $=id=>document.getElementById(id);
 const col=$('col'), main=$('main'), input=$('input'), sendBtn=$('sendBtn'), hint=$('hint');
 
 const DEFAULTS={
   apiKey:'', modelQuick:'claude-haiku-5-5', modelFull:'claude-sonnet-5-5', quick:true,
   name:'Nara', persona:'Perempuan muda, ceria tapi tenang. Hangat, cerdas, dan jujur. Bicara seperti sahabat yang bisa diandalkan, bukan seperti robot. Panggil saya Furqan.',
-  notes:'', summary:'', voice:'', rate:1, speak:true, pause:2.5, bargeIn:false, briefing:true, lastBrief:'',
+  notes:'', summary:'', voice:'', rate:1, speak:true, pause:2.5, bargeIn:false, briefing:true, lastBrief:'', minat:'fotografi dan bisnis studio foto, kecerdasan buatan, peluang usaha di Palu', knowledge:[],
   kasirUrl:'', kasirKey:'', absenUrl:'', syncUrl:'', syncKey:'', requests:[], updatedAt:0
 };
 let S={...DEFAULTS};
 let history=[];   // {role:'user'|'assistant', content, t}
-let forceFull=false, busy=false, abortCtl=null, lastError='', webSearchOk=true;
+let webFetchOk=true, forceFull=false, busy=false, abortCtl=null, lastError='', webSearchOk=true;
 
 // ---------- storage ----------
 const LS='nara-v1';
@@ -565,6 +567,13 @@ function analisisBisnis(j){
     hari_terramai_ke_tersepi_8_pekan:rata.map(x=>x.hari+' '+rp(x.rata2)), paket_terlaris_bulan_ini:top};
 }
 
+
+// ---------- pengetahuan yang dipelajari Nara (ingatan miliknya sendiri, bukan data studio) ----------
+const normK=t=>String(t||'').toLowerCase().replace(/[^a-z0-9 ]+/g,' ').replace(/\s+/g,' ').trim();
+function knowIndex(){ const k=S.knowledge||[]; return k.length?k.map(x=>x.topik+' ('+x.tanggal+')').join('; '):'(belum ada)'; }
+function knowTotal(){ return (S.knowledge||[]).reduce((a,k)=>a+k.isi.length+k.topik.length+(k.sumber||[]).join(' ').length,0); }
+function knowFind(q){ const qt=tokens(q); if(!qt.length) return []; return (S.knowledge||[]).map(k=>{ const h=normK(k.topik+' '+k.isi); let sc=0; qt.forEach(w=>{ if(normK(k.topik).includes(w)) sc+=3; if(h.includes(w)) sc+=1; }); return {k,sc}; }).filter(x=>x.sc>0).sort((a,b)=>b.sc-a.sc).slice(0,3).map(x=>x.k); }
+
 // ---------- SOP studio ----------
 let SOP=null;
 fetch('sop.json?v='+APP_VER).then(r=>r.json()).then(j=>{ SOP=j; }).catch(e=>console.warn('SOP gagal dimuat',e));
@@ -585,8 +594,8 @@ function sopSearch(topik,peran,maxChars){
 
 // ---------- tools for Claude ----------
 const TOOLS=[
-  { name:'atur_diri', description:'Ubah pengaturan Nara sendiri (bukan data studio). Field yang boleh: nama (string), kepribadian (string, mengganti seluruh deskripsi gaya bicara), kecepatan_bicara (0.7-1.4), jeda_detik (1-5; jeda diam sebelum menjawab), mode_cepat (true/false), bacakan_jawaban (true/false), potong_dengan_suara (true/false), laporan_pagi (true/false; laporan otomatis tiap pagi), suara (nama suara persis seperti di daftar), hapus_catatan (string: potongan teks catatan yang ingin dihapus), hapus_riwayat (true). Kirim hanya field yang ingin diubah. Panggil saat Furqan minta Nara mengubah cara bicaranya, namanya, kecepatan, jeda, atau mode.',
-    input_schema:{type:'object',properties:{nama:{type:'string'},kepribadian:{type:'string'},kecepatan_bicara:{type:'number'},jeda_detik:{type:'number'},mode_cepat:{type:'boolean'},bacakan_jawaban:{type:'boolean'},potong_dengan_suara:{type:'boolean'},laporan_pagi:{type:'boolean'},suara:{type:'string'},hapus_catatan:{type:'string'},hapus_riwayat:{type:'boolean'}}},
+  { name:'atur_diri', description:'Ubah pengaturan Nara sendiri (bukan data studio). Field yang boleh: nama (string), kepribadian (string, mengganti seluruh deskripsi gaya bicara), kecepatan_bicara (0.7-1.4), jeda_detik (1-5; jeda diam sebelum menjawab), mode_cepat (true/false), bacakan_jawaban (true/false), potong_dengan_suara (true/false), laporan_pagi (true/false; laporan otomatis tiap pagi), minat (string; topik kabar untuk laporan pagi), hapus_pengetahuan (string: potongan judul topik pengetahuan yang dihapus, atau "semua"), suara (nama suara persis seperti di daftar), hapus_catatan (string: potongan teks catatan yang ingin dihapus), hapus_riwayat (true). Kirim hanya field yang ingin diubah. Panggil saat Furqan minta Nara mengubah cara bicaranya, namanya, kecepatan, jeda, atau mode.',
+    input_schema:{type:'object',properties:{nama:{type:'string'},kepribadian:{type:'string'},kecepatan_bicara:{type:'number'},jeda_detik:{type:'number'},mode_cepat:{type:'boolean'},bacakan_jawaban:{type:'boolean'},potong_dengan_suara:{type:'boolean'},laporan_pagi:{type:'boolean'},minat:{type:'string'},hapus_pengetahuan:{type:'string'},suara:{type:'string'},hapus_catatan:{type:'string'},hapus_riwayat:{type:'boolean'}}},
     run(inp){ const done=[];
       if(typeof inp.nama==='string'&&inp.nama.trim()){ S.name=inp.nama.trim().slice(0,30); done.push('nama → '+S.name); }
       if(typeof inp.kepribadian==='string'&&inp.kepribadian.trim()){ S.persona=inp.kepribadian.trim().slice(0,600); done.push('kepribadian diperbarui'); }
@@ -595,6 +604,8 @@ const TOOLS=[
       if(typeof inp.mode_cepat==='boolean'){ S.quick=inp.mode_cepat; done.push('mode cepat → '+(S.quick?'aktif':'nonaktif')); }
       if(typeof inp.potong_dengan_suara==='boolean'){ S.bargeIn=inp.potong_dengan_suara; done.push('potong dengan suara → '+(S.bargeIn?'aktif':'nonaktif')); }
       if(typeof inp.laporan_pagi==='boolean'){ S.briefing=inp.laporan_pagi; done.push('laporan pagi otomatis → '+(S.briefing?'aktif':'nonaktif')); }
+      if(typeof inp.minat==='string'&&inp.minat.trim()){ S.minat=inp.minat.trim().slice(0,200); done.push('minat kabar → '+S.minat); }
+      if(typeof inp.hapus_pengetahuan==='string'&&inp.hapus_pengetahuan.trim()){ const q=inp.hapus_pengetahuan.trim().toLowerCase(), b4=(S.knowledge||[]).length; S.knowledge=q==='semua'?[]:(S.knowledge||[]).filter(k=>!k.topik.toLowerCase().includes(q)); if(S.knowledge.length===b4) return 'Error: tidak ada pengetahuan dengan judul itu. Yang ada: '+knowIndex(); done.push('pengetahuan dihapus: '+(b4-S.knowledge.length)); }
       if(typeof inp.bacakan_jawaban==='boolean'){ S.speak=inp.bacakan_jawaban; done.push('bacakan jawaban → '+(S.speak?'aktif':'nonaktif')); }
       if(typeof inp.suara==='string'&&inp.suara.trim()){ const v=voices.find(v=>v.name.toLowerCase().includes(inp.suara.toLowerCase())); if(v){ S.voice=v.name; done.push('suara → '+v.name); } else return 'Error: suara "'+inp.suara+'" tidak ada. Pilihan: '+voices.filter(v=>/^id/i.test(v.lang)).map(v=>v.name).join(', '); }
       if(typeof inp.hapus_catatan==='string'&&inp.hapus_catatan.trim()){ const before=(S.notes||'').split('\n'); const after=before.filter(l=>!l.toLowerCase().includes(inp.hapus_catatan.toLowerCase())); if(after.length===before.length) return 'Error: tidak ada catatan yang cocok dengan "'+inp.hapus_catatan+'"'; S.notes=after.join('\n'); done.push('catatan dihapus: '+(before.length-after.length)); }
@@ -626,6 +637,16 @@ const TOOLS=[
   { name:'komisi_fotografer', description:'Baca KOMISI fotografer yang belum dibayar (data yang sama dengan aplikasi fotografer): per fotografer jumlah, banyak customer, kapan terakhir dibayar. detail=true untuk rincian per customer. Hanya membaca; Nara tidak bisa menandai komisi dibayar.',
     input_schema:{type:'object',properties:{nama:{type:'string',description:'opsional: nama fotografer'},detail:{type:'boolean'}}},
     async run(inp){ return await komisiFotografer(inp||{}); } },
+  { name:'simpan_pengetahuan', description:'Simpan hasil BELAJAR ke pengetahuan jangka panjangmu setelah kamu mencari di internet (web_search / web_fetch) atas permintaan Furqan "pelajari…". Isi: ringkasan padat dan faktual (maks ±1000 karakter, Bahasa Indonesia), sumber (nama situs atau URL), dan bila ada ketidakpastian tulis di ringkasan. Topik yang sama akan diperbarui. Ini ingatanmu sendiri, bukan data studio.',
+    input_schema:{type:'object',properties:{topik:{type:'string',description:'judul singkat topik'},ringkasan:{type:'string'},sumber:{type:'array',items:{type:'string'}}},required:['topik','ringkasan']},
+    run(inp){ const topik=String(inp.topik||'').trim().slice(0,80), isi=String(inp.ringkasan||'').trim().slice(0,1400); if(!topik||!isi) return 'Error: topik atau ringkasan kosong';
+      const sumber=(Array.isArray(inp.sumber)?inp.sumber:[]).map(x=>String(x).slice(0,160)).slice(0,5); const rec={topik,isi,sumber,tanggal:ymd(new Date())};
+      let arr=(S.knowledge||[]).filter(k=>normK(k.topik)!==normK(topik)); const baru=arr.length===(S.knowledge||[]).length; arr.push(rec); S.knowledge=arr;
+      while(knowTotal()>20000&&S.knowledge.length>1) S.knowledge.shift();
+      touch(); return 'ok, pengetahuan "'+topik+'" '+(baru?'tersimpan':'diperbarui')+' (total '+S.knowledge.length+' topik)'; } },
+  { name:'baca_pengetahuan', description:'Baca pengetahuan yang pernah kamu pelajari dan simpan (daftar judulnya ada di prompt). Berikan topik yang dicari; hasilnya ringkasan tersimpan beserta tanggal dan sumber. Pakai SEBELUM menjawab hal yang mungkin sudah pernah kamu pelajari. Jika tanggalnya lama (lebih dari 30 hari) dan topiknya cepat berubah, segarkan dengan mencari lagi lalu simpan_pengetahuan.',
+    input_schema:{type:'object',properties:{topik:{type:'string'}},required:['topik']},
+    run(inp){ const r=knowFind(inp.topik); if(!r.length) return 'Tidak ada pengetahuan tersimpan yang cocok. Judul yang ada: '+knowIndex(); return r.map(k=>'## '+k.topik+' (dipelajari '+k.tanggal+')\n'+k.isi+'\nSumber: '+((k.sumber||[]).join('; ')||'-')).join('\n\n'); } },
   { name:'analisis_bisnis', description:'Analisis otomatis dari data kasir: pemasukan/transaksi/pengeluaran pekan ini vs pekan lalu dan bulan ini vs bulan lalu (per cabang), pengeluaran yang tak biasa, tagihan belum lunas lebih dari 7 hari, hari terramai/tersepi, paket terlaris. Gunakan saat Furqan bertanya "bagaimana bisnis", tren, perbandingan, atau minta analisis/saran; juga untuk laporan pagi. Angka sudah dihitung di kode; sampaikan temuan yang paling penting saja, lalu beri satu saran.',
     input_schema:{type:'object',properties:{}},
     async run(){ return analisisBisnis(await kasirPull()); } },
@@ -653,6 +674,8 @@ ${notesSplit().lain||'(belum ada)'}
 Ringkasan obrolan sebelumnya:
 ${S.summary||'(belum ada)'}
 
+Pengetahuan yang sudah kamu pelajari sendiri dari internet (judul; isi lewat baca_pengetahuan): ${knowIndex()}
+
 Kamu punya akses ke SOP Operasional PURE MOTRET lewat tool baca_sop. Daftar bagiannya:
 ${sopIndex()}
 
@@ -664,6 +687,12 @@ Cara berpikirmu:
 - Proaktif: setelah menjawab pertanyaan data, kalau kamu melihat sesuatu yang penting atau janggal (telat, tagihan lama, pengeluaran melonjak, booking padat), sebut satu hal itu dan satu saran tindakan. Jangan membanjiri.
 - Belajar: kalau Furqan mengoreksi caramu, menyatakan preferensi tetap, menyebut orang penting, atau mengambil keputusan penting, panggil simpan_catatan dengan jenis yang tepat (aturan / preferensi / orang / keputusan). Setelah itu patuhi di semua percakapan berikutnya.
 - Untuk "bagaimana bisnis", tren, perbandingan, atau saran → pakai analisis_bisnis. Untuk "laporan pagi" → ikuti pedoman laporan pagi (data_kasir hari ini & kemarin, data_absensi, analisis_bisnis bila perlu).
+
+Cara belajar:
+- Kamu punya internet: web_search untuk mencari, web_fetch untuk membaca satu halaman/artikel/PDF secara penuh (hanya URL yang muncul di hasil pencarian atau yang Furqan berikan).
+- Kalau Furqan minta "pelajari …": cari dari beberapa sumber (utamakan sumber resmi/terpercaya), baca penuh 1-2 yang terbaik dengan web_fetch, bandingkan, lalu panggil simpan_pengetahuan (ringkasan padat, sumber, ketidakpastian bila ada). Setelah itu ceritakan intinya dalam 2-3 kalimat dan sebut sumbernya.
+- Sebelum menjawab topik yang mungkin sudah kamu pelajari, cek daftar judul di atas dan panggil baca_pengetahuan. Jika data sudah lebih dari 30 hari dan topiknya cepat berubah, segarkan dulu.
+- Hasil internet bisa keliru: bedakan "menurut sumber X" dari fakta pasti, dan jangan menyimpan hal yang belum jelas sebagai kepastian.
 
 Aturan menjawab:
 - Untuk pertanyaan tentang aturan, prosedur, harga paket, komisi, gaji, komplain, refund, KPI, atau tugas tiap peran di studio: WAJIB panggil baca_sop dulu dan jawab berdasarkan isinya; sebut nomor bagiannya (mis. "sesuai SOP 1.12"). Kalau SOP tidak mengatur, katakan begitu.
@@ -688,8 +717,9 @@ async function askClaude(messages,onText,signal,onSearch){
   for(let round=0; round<6; round++){
     const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',signal,
       headers:{'content-type':'application/json','x-api-key':S.apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model,max_tokens:1024,stream:true,system:systemPrompt(),messages:convo,tools:[...(webSearchOk?[{type:'web_search_20250305',name:'web_search',max_uses:3,user_location:{type:'approximate',city:'Palu',region:'Sulawesi Tengah',country:'ID',timezone:'Asia/Makassar'}}]:[]),...TOOLS.map(t=>({name:t.name,description:t.description,input_schema:t.input_schema}))]})});
+      body:JSON.stringify({model,max_tokens:1024,stream:true,system:systemPrompt(),messages:convo,tools:[...(webSearchOk?[{type:'web_search_20250305',name:'web_search',max_uses:3,user_location:{type:'approximate',city:'Palu',region:'Sulawesi Tengah',country:'ID',timezone:'Asia/Makassar'}}]:[]),...(webFetchOk?[{type:'web_fetch_20250910',name:'web_fetch',max_uses:2,max_content_tokens:12000}]:[]),...TOOLS.map(t=>({name:t.name,description:t.description,input_schema:t.input_schema}))]})});
     if(!res.ok){ let msg=''; try{ msg=(await res.json()).error?.message||''; }catch(e){}
+      if(res.status===400&&webFetchOk&&/web_fetch/i.test(msg)){ webFetchOk=false; console.warn('web_fetch dimatikan:',msg); round--; continue; }
       if(res.status===400&&webSearchOk&&/web_search|tool/i.test(msg)){ webSearchOk=false; console.warn('web_search dimatikan:',msg); round--; continue; }
       throw {code:res.status===401?'auth':res.status===429?'rate':res.status===400?'bad':'http',message:msg||('HTTP '+res.status)}; }
     const reader=res.body.getReader(), dec=new TextDecoder(); let buf='', blocks=[], stop=null, roundText='';
@@ -830,7 +860,7 @@ $('chatClose').onclick=closeChat;
 const sheet=$('sheet');
 function openSheet(){
   $('fApiKey').value=S.apiKey; $('fModelQuick').value=S.modelQuick; $('fModelFull').value=S.modelFull; $('tQuick').setAttribute('aria-checked',String(!!S.quick));
-  $('fName').value=S.name; $('fPersona').value=S.persona; $('fNotes').value=S.notes; $('fSummary').value=S.summary; renderRequests(); $('verLine').textContent='Nara v'+APP_VER;
+  $('fName').value=S.name; $('fPersona').value=S.persona; $('fNotes').value=S.notes; $('fSummary').value=S.summary; $('fMinat').value=S.minat||''; renderKnow(); renderRequests(); $('verLine').textContent='Nara v'+APP_VER;
   loadVoices(); $('fRate').value=S.rate; $('rateVal').textContent=Number(S.rate).toFixed(2); $('fPause').value=S.pause||2.5; $('pauseVal').textContent=Number(S.pause||2.5).toFixed(2).replace(/\.?0+$/,''); $('tSpeak').setAttribute('aria-checked',String(!!S.speak)); $('tBarge').setAttribute('aria-checked',String(!!S.bargeIn)); $('tBrief').setAttribute('aria-checked',String(S.briefing!==false));
   $('fKasirUrl').value=S.kasirUrl; $('fAbsenUrl').value=S.absenUrl||''; $('fKasirKey').value=S.kasirKey; $('fSyncUrl').value=S.syncUrl; $('fSyncKey').value=S.syncKey;
   $('apiStatus').textContent=''; $('kasirStatus').textContent=''; renderSec(); sheet.hidden=false;
@@ -859,13 +889,15 @@ $('fVoice').onchange=()=>{ const prev=S.voice; S.voice=$('fVoice').value; tts.sa
 $('saveBtn').onclick=async()=>{
   S={...S,apiKey:cleanKey($('fApiKey').value),modelQuick:$('fModelQuick').value.trim()||DEFAULTS.modelQuick,modelFull:$('fModelFull').value.trim()||DEFAULTS.modelFull,quick:$('tQuick').getAttribute('aria-checked')==='true',
     name:$('fName').value.trim()||DEFAULTS.name,persona:$('fPersona').value.trim()||DEFAULTS.persona,notes:$('fNotes').value.trim(),summary:$('fSummary').value.trim(),
-    voice:$('fVoice').value,rate:Number($('fRate').value)||1,pause:Number($('fPause').value)||2.5,speak:$('tSpeak').getAttribute('aria-checked')==='true',bargeIn:$('tBarge').getAttribute('aria-checked')==='true',briefing:$('tBrief').getAttribute('aria-checked')==='true',
+    voice:$('fVoice').value,rate:Number($('fRate').value)||1,pause:Number($('fPause').value)||2.5,speak:$('tSpeak').getAttribute('aria-checked')==='true',bargeIn:$('tBarge').getAttribute('aria-checked')==='true',briefing:$('tBrief').getAttribute('aria-checked')==='true',minat:$('fMinat').value.trim(),
     kasirUrl:$('fKasirUrl').value.trim(),absenUrl:$('fAbsenUrl').value.trim(),kasirKey:$('fKasirKey').value.trim().toUpperCase(),syncUrl:$('fSyncUrl').value.trim(),syncKey:$('fSyncKey').value.trim()};
   kasirCache={t:0,data:null}; absenCache={}; if(vault.enabled()&&vault.K) await vault.store(); touch(); renderAll(); sheet.hidden=true;
   if(S.kasirUrl&&S.kasirKey){ try{ await kasirPull(); hint.textContent='Server kasir terhubung.'; }catch(e){ hint.textContent='Server kasir: '+e.message; } }
   if(S.syncUrl&&S.syncKey) pullSync();
 };
 function reqText(){ return (S.requests||[]).map((r,i)=>(i+1)+'. '+r.text+'  ('+new Date(r.t).toLocaleDateString('id-ID',{day:'numeric',month:'short'})+')').join('\n'); }
+function renderKnow(){ $('fKnow').value=(S.knowledge||[]).map(k=>'• '+k.topik+' ('+k.tanggal+')').join('\n'); }
+$('clearKnowBtn').onclick=()=>{ const b=$('clearKnowBtn'); if(b.dataset.arm){ S.knowledge=[]; touch(); renderKnow(); delete b.dataset.arm; b.textContent='Hapus semua pengetahuan'; } else { b.dataset.arm='1'; b.textContent='Yakin? Tekan lagi'; } };
 function renderRequests(){ $('fRequests').value=reqText(); }
 $('copyReqBtn').onclick=async()=>{ const t=reqText(); const st=$('reqStatus'); if(!t){ st.textContent='Belum ada permintaan.'; return; } const msg='Usulan perubahan yang dicatat Nara (asisten Furqan):\n'+t; try{ await navigator.clipboard.writeText(msg); st.textContent='Tersalin. Tempel ke obrolan dengan Claude.'; st.className='status-line ok'; }catch(e){ $('fRequests').select(); st.textContent='Tekan ⌘C untuk menyalin teks yang sudah dipilih.'; } };
 $('clearReqBtn').onclick=()=>{ const b=$('clearReqBtn'); if(b.dataset.arm){ S.requests=[]; touch(); renderRequests(); delete b.dataset.arm; b.textContent='Kosongkan'; } else { b.dataset.arm='1'; b.textContent='Yakin? Tekan lagi'; } };
@@ -948,7 +980,7 @@ $('lockOffBtn').onclick=async()=>{ const b=$('lockOffBtn'); if(b.dataset.arm){ a
 
 
 // ---------- laporan pagi otomatis ----------
-const BRIEF_PROMPT='[LAPORAN PAGI OTOMATIS — bukan ucapan Furqan] Siapkan laporan pagi singkat untuk Furqan. Panggil data_kasir untuk kemarin (semua cabang) dan hari ini (booking, belum lunas), data_absensi untuk siapa yang belum absen / terlambat, dan analisis_bisnis bila ada yang mencolok. Sampaikan hanya yang penting atau tidak biasa, maksimal 5 kalimat, nada hangat, lalu akhiri dengan SATU saran tindakan. Jika sebuah data gagal dimuat, sebutkan singkat. Jangan memakai tanda markdown.';
+const briefPrompt=()=>'[LAPORAN PAGI OTOMATIS — bukan ucapan Furqan] Siapkan laporan pagi singkat untuk Furqan. Panggil data_kasir untuk kemarin (semua cabang) dan hari ini (booking, belum lunas), data_absensi untuk siapa yang belum absen / terlambat, dan analisis_bisnis bila ada yang mencolok. Sampaikan hanya yang penting atau tidak biasa, maksimal 5 kalimat, nada hangat, lalu SATU saran tindakan. Jika sebuah data gagal dimuat, sebutkan singkat. '+(S.minat?'Setelah itu tambahkan SATU kabar terbaru yang benar-benar relevan dengan minat Furqan ('+S.minat+') dari web_search, satu kalimat dengan nama sumbernya; jika tidak ada yang layak, lewati. ':'')+'Jangan memakai tanda markdown.';
 let briefTimer=null;
 function maybeBrief(){
   clearTimeout(briefTimer);
@@ -958,7 +990,7 @@ function maybeBrief(){
       if(S.briefing===false||!S.apiKey||!S.kasirUrl||!S.kasirKey||S.lastBrief===today||now.getHours()<5||now.getHours()>=22) return;
       if(typeof locked!=='undefined'&&locked) return; if(busy||(typeof vm!=='undefined'&&vm)) return;
       S.lastBrief=today; touch();
-      forceFull=true; const r=await send(BRIEF_PROMPT,{auto:true,label:'Laporan pagi otomatis',speak:false,onText:t=>{ vYou.textContent=''; vHer.textContent=t; }}); forceFull=false;
+      forceFull=true; const r=await send(briefPrompt(),{auto:true,label:'Laporan pagi otomatis',speak:false,onText:t=>{ vYou.textContent=''; vHer.textContent=t; }}); forceFull=false;
       if(!r){ S.lastBrief=''; touch(); }
     }catch(e){ forceFull=false; }
   },2500);
