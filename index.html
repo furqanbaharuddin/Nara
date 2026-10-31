@@ -237,6 +237,7 @@ textarea{flex:1;min-width:0;resize:none;border:1px solid var(--line);border-radi
     <div class="field"><label for="fRate">Kecepatan bicara: <span id="rateVal">1.0</span></label><input id="fRate" type="range" min="0.7" max="1.4" step="0.05" value="1"></div>
     <div class="field"><label for="fPause">Jeda diam sebelum Nara menjawab: <span id="pauseVal">2.5</span> detik</label><input id="fPause" type="range" min="1" max="5" step="0.25" value="2.5"><small>Perbesar kalau Nara sering memotong; perkecil kalau terasa lambat menanggapi. Atau akhiri kalimat dengan "sudah" / "udah" / "selesai" supaya Nara langsung menjawab.</small></div>
     <div class="row"><span>Potong dengan suara<small>Nara berhenti bicara begitu Anda mulai bicara. Nyalakan hanya saat memakai earphone; tanpa earphone dia akan mendengar suaranya sendiri.</small></span><button class="toggle" id="tBarge" role="switch" aria-checked="false" aria-label="Potong dengan suara"></button></div>
+    <div class="row"><span>Laporan pagi otomatis<small>Sekali sehari saat Nara dibuka, dia menyiapkan ringkasan: omzet kemarin, yang belum absen, tagihan belum lunas, dan booking hari ini. Muncul sebagai teks; bilang "bacakan" untuk mendengarnya.</small></span><button class="toggle" id="tBrief" role="switch" aria-checked="true" aria-label="Laporan pagi otomatis"></button></div>
     <div class="row"><span>Bacakan jawaban di mode ketik</span><button class="toggle" id="tSpeak" role="switch" aria-checked="false" aria-label="Bacakan jawaban"></button></div>
 
     <h3>Keamanan</h3>
@@ -272,19 +273,19 @@ textarea{flex:1;min-width:0;resize:none;border:1px solid var(--line);border-radi
 <script>
 (function(){
 'use strict';
-const APP_VER='3.5.0';
+const APP_VER='3.6.0';
 const $=id=>document.getElementById(id);
 const col=$('col'), main=$('main'), input=$('input'), sendBtn=$('sendBtn'), hint=$('hint');
 
 const DEFAULTS={
   apiKey:'', modelQuick:'claude-haiku-5-5', modelFull:'claude-sonnet-5-5', quick:true,
   name:'Nara', persona:'Perempuan muda, ceria tapi tenang. Hangat, cerdas, dan jujur. Bicara seperti sahabat yang bisa diandalkan, bukan seperti robot. Panggil saya Furqan.',
-  notes:'', summary:'', voice:'', rate:1, speak:true, pause:2.5, bargeIn:false,
+  notes:'', summary:'', voice:'', rate:1, speak:true, pause:2.5, bargeIn:false, briefing:true, lastBrief:'',
   kasirUrl:'', kasirKey:'', absenUrl:'', syncUrl:'', syncKey:'', requests:[], updatedAt:0
 };
 let S={...DEFAULTS};
 let history=[];   // {role:'user'|'assistant', content, t}
-let busy=false, abortCtl=null, lastError='', webSearchOk=true;
+let forceFull=false, busy=false, abortCtl=null, lastError='', webSearchOk=true;
 
 // ---------- storage ----------
 const LS='nara-v1';
@@ -525,6 +526,45 @@ async function komisiFotografer(inp){
     total_semua:rp(rows.reduce((a,x)=>a+(Number(x.total)||0),0))};
 }
 
+
+// ---------- analisis bisnis (dihitung di kode dari data kasir; hanya baca) ----------
+function analisisBisnis(j){
+  const p=j.pull||{}; const pay=(p.pembayaran||[]).filter(x=>!x.dihapus), out=(p.pengeluaran||[]).filter(x=>!x.dihapus), tx=(p.transaksi||[]).filter(t=>!t.batal);
+  const now=new Date(), today=ymd(now);
+  const add=(d,n)=>{ const x=new Date(d); x.setDate(x.getDate()+n); return x; };
+  const inR=(x,a,b,c)=>x.tanggal>=a&&x.tanggal<=b&&(!c||x.cabang===c);
+  const sum=(arr,f,a,b,c)=>arr.filter(x=>inR(x,a,b,c)).reduce((s,x)=>s+(Number(x[f])||0),0);
+  const awal=[...pay,...tx].map(x=>String(x.tanggal||'')).filter(Boolean).sort()[0]||today;
+  const mon=add(now,-((now.getDay()+6)%7)); const n=Math.round((new Date(today)-new Date(ymd(mon)))/864e5);
+  const wkNow=[ymd(mon),today], lm=add(mon,-7), wkPrev=[ymd(lm),ymd(add(lm,n))];
+  const mNow=[ymd(new Date(now.getFullYear(),now.getMonth(),1)),today];
+  const pm=new Date(now.getFullYear(),now.getMonth()-1,1), pmLen=new Date(pm.getFullYear(),pm.getMonth()+1,0).getDate();
+  const moPrev=[ymd(pm),ymd(new Date(pm.getFullYear(),pm.getMonth(),Math.min(now.getDate(),pmLen)))];
+  const pct=(a,b)=>b?Math.round((a-b)/b*100)+'%':'(pembanding 0)';
+  const cmp=(cur,prev)=>{ const r={}; ['ALL','SP','PB'].forEach(c=>{ const cb=c==='ALL'?'':c;
+      const pm1=sum(pay,'jumlah',cur[0],cur[1],cb), pm0=sum(pay,'jumlah',prev[0],prev[1],cb), ex1=sum(out,'nominal',cur[0],cur[1],cb), ex0=sum(out,'nominal',prev[0],prev[1],cb);
+      const t1=tx.filter(x=>inR(x,cur[0],cur[1],cb)).length, t0=tx.filter(x=>inR(x,prev[0],prev[1],cb)).length;
+      r[c==='ALL'?'semua':CAB[c]]={pemasukan:rp(pm1),pemasukan_pembanding:rp(pm0),selisih_pemasukan:pct(pm1,pm0),transaksi:t1,transaksi_pembanding:t0,pengeluaran:rp(ex1),pengeluaran_pembanding:rp(ex0),selisih_pengeluaran:pct(ex1,ex0)}; });
+    return {periode:cur[0]+' s/d '+cur[1],pembanding:prev[0]+' s/d '+prev[1],data_lengkap:prev[0]>=awal,hasil:r}; };
+  // pengeluaran tak biasa: 3 hari terakhir vs rata-rata harian 30 hari sebelumnya
+  const harian={}; out.forEach(x=>{ harian[x.tanggal]=(harian[x.tanggal]||0)+(Number(x.nominal)||0); });
+  const base=[]; for(let i=4;i<=33;i++){ base.push(harian[ymd(add(now,-i))]||0); } const avg=base.reduce((a,b)=>a+b,0)/base.length;
+  const tak=[]; for(let i=0;i<3;i++){ const d=ymd(add(now,-i)), v=harian[d]||0; if(v>Math.max(100000,avg*2)) tak.push(d+': '+rp(v)+' (rata-rata harian '+rp(avg)+')'); }
+  // tagihan lama
+  const lama=tx.filter(t=>Number(t.sisa)>0&&String(t.tanggal)<=ymd(add(now,-7))).sort((a,b)=>String(a.tanggal)<String(b.tanggal)?-1:1);
+  // hari ramai/sepi (8 pekan)
+  const hr=['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu']; const tot=Array(7).fill(0), cn=Array(7).fill(0);
+  for(let i=1;i<=56;i++){ const d=add(now,-i), k=d.getDay(); tot[k]+=sum(pay,'jumlah',ymd(d),ymd(d),''); cn[k]++; }
+  const rata=hr.map((h,k)=>({hari:h,rata2:Math.round(tot[k]/cn[k])})).sort((a,b)=>b.rata2-a.rata2);
+  // paket terlaris bulan ini
+  const pk={}; tx.filter(t=>inR(t,mNow[0],mNow[1],'')).forEach(t=>(t.items||[]).forEach(i=>{ pk[i.nama]=(pk[i.nama]||0)+(Number(i.qty)||1); }));
+  const top=Object.entries(pk).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([k,v])=>k+' ×'+v);
+  return {catatan:'Semua angka dihitung dari data kasir (maks ±62 hari terakhir). Jika data_lengkap=false, pembanding tidak penuh sehingga persentase tidak boleh dipakai sebagai kesimpulan.',
+    pekan_ini_vs_pekan_lalu:cmp(wkNow,wkPrev), bulan_ini_vs_bulan_lalu_periode_sama:cmp(mNow,moPrev),
+    pengeluaran_tak_biasa:tak.length?tak:'tidak ada', tagihan_lebih_7_hari:{jumlah:lama.length,total_sisa:rp(lama.reduce((a,t)=>a+(Number(t.sisa)||0),0)),tertua:lama.slice(0,5).map(t=>t.tanggal+' '+(CAB[t.cabang]||t.cabang)+' '+t.nama+' sisa '+rp(t.sisa))},
+    hari_terramai_ke_tersepi_8_pekan:rata.map(x=>x.hari+' '+rp(x.rata2)), paket_terlaris_bulan_ini:top};
+}
+
 // ---------- SOP studio ----------
 let SOP=null;
 fetch('sop.json?v='+APP_VER).then(r=>r.json()).then(j=>{ SOP=j; }).catch(e=>console.warn('SOP gagal dimuat',e));
@@ -545,8 +585,8 @@ function sopSearch(topik,peran,maxChars){
 
 // ---------- tools for Claude ----------
 const TOOLS=[
-  { name:'atur_diri', description:'Ubah pengaturan Nara sendiri (bukan data studio). Field yang boleh: nama (string), kepribadian (string, mengganti seluruh deskripsi gaya bicara), kecepatan_bicara (0.7-1.4), jeda_detik (1-5; jeda diam sebelum menjawab), mode_cepat (true/false), bacakan_jawaban (true/false), potong_dengan_suara (true/false), suara (nama suara persis seperti di daftar), hapus_catatan (string: potongan teks catatan yang ingin dihapus), hapus_riwayat (true). Kirim hanya field yang ingin diubah. Panggil saat Furqan minta Nara mengubah cara bicaranya, namanya, kecepatan, jeda, atau mode.',
-    input_schema:{type:'object',properties:{nama:{type:'string'},kepribadian:{type:'string'},kecepatan_bicara:{type:'number'},jeda_detik:{type:'number'},mode_cepat:{type:'boolean'},bacakan_jawaban:{type:'boolean'},potong_dengan_suara:{type:'boolean'},suara:{type:'string'},hapus_catatan:{type:'string'},hapus_riwayat:{type:'boolean'}}},
+  { name:'atur_diri', description:'Ubah pengaturan Nara sendiri (bukan data studio). Field yang boleh: nama (string), kepribadian (string, mengganti seluruh deskripsi gaya bicara), kecepatan_bicara (0.7-1.4), jeda_detik (1-5; jeda diam sebelum menjawab), mode_cepat (true/false), bacakan_jawaban (true/false), potong_dengan_suara (true/false), laporan_pagi (true/false; laporan otomatis tiap pagi), suara (nama suara persis seperti di daftar), hapus_catatan (string: potongan teks catatan yang ingin dihapus), hapus_riwayat (true). Kirim hanya field yang ingin diubah. Panggil saat Furqan minta Nara mengubah cara bicaranya, namanya, kecepatan, jeda, atau mode.',
+    input_schema:{type:'object',properties:{nama:{type:'string'},kepribadian:{type:'string'},kecepatan_bicara:{type:'number'},jeda_detik:{type:'number'},mode_cepat:{type:'boolean'},bacakan_jawaban:{type:'boolean'},potong_dengan_suara:{type:'boolean'},laporan_pagi:{type:'boolean'},suara:{type:'string'},hapus_catatan:{type:'string'},hapus_riwayat:{type:'boolean'}}},
     run(inp){ const done=[];
       if(typeof inp.nama==='string'&&inp.nama.trim()){ S.name=inp.nama.trim().slice(0,30); done.push('nama → '+S.name); }
       if(typeof inp.kepribadian==='string'&&inp.kepribadian.trim()){ S.persona=inp.kepribadian.trim().slice(0,600); done.push('kepribadian diperbarui'); }
@@ -554,6 +594,7 @@ const TOOLS=[
       if(typeof inp.jeda_detik==='number'){ S.pause=Math.min(5,Math.max(1,inp.jeda_detik)); done.push('jeda → '+S.pause+' detik'); }
       if(typeof inp.mode_cepat==='boolean'){ S.quick=inp.mode_cepat; done.push('mode cepat → '+(S.quick?'aktif':'nonaktif')); }
       if(typeof inp.potong_dengan_suara==='boolean'){ S.bargeIn=inp.potong_dengan_suara; done.push('potong dengan suara → '+(S.bargeIn?'aktif':'nonaktif')); }
+      if(typeof inp.laporan_pagi==='boolean'){ S.briefing=inp.laporan_pagi; done.push('laporan pagi otomatis → '+(S.briefing?'aktif':'nonaktif')); }
       if(typeof inp.bacakan_jawaban==='boolean'){ S.speak=inp.bacakan_jawaban; done.push('bacakan jawaban → '+(S.speak?'aktif':'nonaktif')); }
       if(typeof inp.suara==='string'&&inp.suara.trim()){ const v=voices.find(v=>v.name.toLowerCase().includes(inp.suara.toLowerCase())); if(v){ S.voice=v.name; done.push('suara → '+v.name); } else return 'Error: suara "'+inp.suara+'" tidak ada. Pilihan: '+voices.filter(v=>/^id/i.test(v.lang)).map(v=>v.name).join(', '); }
       if(typeof inp.hapus_catatan==='string'&&inp.hapus_catatan.trim()){ const before=(S.notes||'').split('\n'); const after=before.filter(l=>!l.toLowerCase().includes(inp.hapus_catatan.toLowerCase())); if(after.length===before.length) return 'Error: tidak ada catatan yang cocok dengan "'+inp.hapus_catatan+'"'; S.notes=after.join('\n'); done.push('catatan dihapus: '+(before.length-after.length)); }
@@ -570,9 +611,12 @@ const TOOLS=[
   { name:'catat_permintaan', description:'Catat USULAN PERUBAHAN untuk diteruskan ke Claude (pembuat Nara): fitur baru Nara, revisi SOP, perubahan harga/paket/aturan, koreksi data kasir, atau apa pun yang mengubah sistem studio. Nara TIDAK punya wewenang mengubah apa pun; tool ini hanya mencatat. Panggil setiap kali Furqan meminta sesuatu diubah/ditambah/dihapus.',
     input_schema:{type:'object',properties:{permintaan:{type:'string',description:'Usulan dalam satu-dua kalimat jelas dengan kata-kata Furqan'},jenis:{type:'string',enum:['fitur-nara','sop','harga-paket','data-kasir','lainnya'],description:'kategori usulan'}},required:['permintaan']},
     run(inp){ const p=String(inp.permintaan||'').trim(); if(!p) return 'Error: kosong'; const j=String(inp.jenis||'lainnya'); S.requests=(S.requests||[]).concat([{t:Date.now(),text:'['+j+'] '+p}]); touch(); return 'ok, tercatat sebagai usulan untuk Claude (total '+S.requests.length+'). Belum ada yang berubah.'; } },
-  { name:'simpan_catatan', description:'Simpan satu catatan singkat ke ingatan jangka panjang asisten (dibaca lagi di setiap percakapan). Panggil hanya saat Furqan minta mengingat/mencatat sesuatu.',
-    input_schema:{type:'object',properties:{catatan:{type:'string',description:'Satu kalimat singkat'}},required:['catatan']},
-    run(inp){ const c=String(inp.catatan||'').trim(); if(!c) return 'Error: kosong'; S.notes=(S.notes?S.notes+'\n':'')+'- '+c; touch(); return 'ok, tersimpan'; } },
+  { name:'simpan_catatan', description:'Simpan satu catatan ke ingatan jangka panjang (dibaca lagi di setiap percakapan). Panggil saat Furqan minta mengingat sesuatu, DAN saat Furqan mengoreksi caramu atau menyatakan preferensi tetap (jenis "aturan"), saat ia menyebut orang penting beserta perannya (jenis "orang"), atau saat ia mengambil keputusan penting (jenis "keputusan"). Satu kalimat padat, tulis sebagai fakta/aturan, bukan percakapan.',
+    input_schema:{type:'object',properties:{catatan:{type:'string',description:'Satu kalimat padat'},jenis:{type:'string',enum:['fakta','orang','keputusan','preferensi','aturan'],description:'aturan = koreksi/instruksi tetap untuk caramu bekerja; preferensi = hal yang Furqan suka/tidak suka; orang; keputusan; fakta'}},required:['catatan']},
+    run(inp){ const c=String(inp.catatan||'').trim().replace(/\s+/g,' '); if(!c) return 'Error: kosong'; const jn=['fakta','orang','keputusan','preferensi','aturan'].includes(inp.jenis)?inp.jenis:'fakta';
+      const norm=t=>t.toLowerCase().replace(/[^a-z0-9 ]/g,'').trim(); const cur=(S.notes||'').split('\n').filter(Boolean);
+      if(cur.some(l=>norm(l.replace(/^- \[[a-z]+\]\s*/i,'').replace(/\(\d{4}-\d{2}-\d{2}\)\s*$/,''))===norm(c))) return 'ok, sudah ada di catatan';
+      const hari=ymd(new Date()); S.notes=cur.concat(['- ['+jn+'] '+c+' ('+hari+')']).join('\n'); touch(); return 'ok, tersimpan sebagai '+jn; } },
   { name:'data_absensi', description:'Baca data ABSENSI karyawan PURE MOTRET (fotografer, kasir, Riang, editor): siapa yang belum absen hari ini, jadwal & status hari ini, jumlah hadir, terlambat (kali dan total menit) dibanding batas bulanan, hari tidak absen, dan status bonus disiplin. Hanya membaca. WAJIB dipakai untuk pertanyaan soal absen, telat, bolos, atau bonus disiplin.',
     input_schema:{type:'object',properties:{nama:{type:'string',description:'opsional: nama karyawan; kosong = semua'},bulan:{type:'string',description:'opsional: YYYY-MM; default bulan ini'}}},
     async run(inp){ return await absensiRingkas(inp||{}); } },
@@ -582,10 +626,16 @@ const TOOLS=[
   { name:'komisi_fotografer', description:'Baca KOMISI fotografer yang belum dibayar (data yang sama dengan aplikasi fotografer): per fotografer jumlah, banyak customer, kapan terakhir dibayar. detail=true untuk rincian per customer. Hanya membaca; Nara tidak bisa menandai komisi dibayar.',
     input_schema:{type:'object',properties:{nama:{type:'string',description:'opsional: nama fotografer'},detail:{type:'boolean'}}},
     async run(inp){ return await komisiFotografer(inp||{}); } },
+  { name:'analisis_bisnis', description:'Analisis otomatis dari data kasir: pemasukan/transaksi/pengeluaran pekan ini vs pekan lalu dan bulan ini vs bulan lalu (per cabang), pengeluaran yang tak biasa, tagihan belum lunas lebih dari 7 hari, hari terramai/tersepi, paket terlaris. Gunakan saat Furqan bertanya "bagaimana bisnis", tren, perbandingan, atau minta analisis/saran; juga untuk laporan pagi. Angka sudah dihitung di kode; sampaikan temuan yang paling penting saja, lalu beri satu saran.',
+    input_schema:{type:'object',properties:{}},
+    async run(){ return analisisBisnis(await kasirPull()); } },
   { name:'data_kasir', description:'Ambil data real dari sistem kasir PURE MOTRET: ringkasan pemasukan per cabang (tunai/transfer/QRIS), jumlah transaksi, pengeluaran, daftar belum lunas, dan booking 7 hari ke depan. Gunakan untuk SEMUA pertanyaan angka bisnis; jangan menebak. Tanggal format YYYY-MM-DD.',
     input_schema:{type:'object',properties:{dari:{type:'string',description:'tanggal awal YYYY-MM-DD (default hari ini)'},sampai:{type:'string',description:'tanggal akhir YYYY-MM-DD (default = dari)'},cabang:{type:'string',enum:['ALL','SP','PB'],description:'SP = S.Parman, PB = Pue Bongo'},detail:{type:'boolean',description:'true untuk daftar transaksi satu per satu'}}},
     async run(inp){ const today=ymd(new Date()); const dari=inp.dari||today, sampai=inp.sampai||dari; const j=await kasirPull(); return ringkasKasir(j,dari,sampai,inp.cabang||'ALL',!!inp.detail); } }
 ];
+
+
+function notesSplit(){ const L=(S.notes||'').split('\n').filter(Boolean); const a=[],o=[]; L.forEach(l=>(/^- \[(aturan|preferensi)\]/i.test(l)?a:o).push(l)); const cut=(arr,n)=>arr.join('\n').slice(-n); return {aturan:cut(a,3000),lain:cut(o,5000)}; }
 
 // ---------- prompt ----------
 function systemPrompt(){
@@ -594,8 +644,11 @@ function systemPrompt(){
 Kepribadian dan gaya bicaramu: ${S.persona}
 Sekarang: ${now} (WITA). Tanggal hari ini: ${ymd(new Date())}.
 
-Catatan yang harus kamu ingat:
-${S.notes||'(belum ada)'}
+ATURAN dari Furqan (koreksi & preferensi tetap — WAJIB kamu patuhi, ini hasil belajarmu):
+${notesSplit().aturan||'(belum ada)'}
+
+Catatan yang harus kamu ingat (orang penting, keputusan, fakta):
+${notesSplit().lain||'(belum ada)'}
 
 Ringkasan obrolan sebelumnya:
 ${S.summary||'(belum ada)'}
@@ -604,6 +657,13 @@ Kamu punya akses ke SOP Operasional PURE MOTRET lewat tool baca_sop. Daftar bagi
 ${sopIndex()}
 
 Batas wewenangmu (PENTING): kamu BOLEH mengatur dirimu sendiri lewat atur_diri (nama, kepribadian, kecepatan, jeda, mode, suara, catatan ingatanmu, riwayat) dan memperbarui dirimu ke versi terbaru lewat perbarui_aplikasi. Untuk data studio kamu HANYA BOLEH MEMBACA dan menjelaskan — data kasir, SOP, harga, jadwal. Kamu TIDAK BISA dan TIDAK BOLEH mengubah, menambah, menghapus, atau "memperbarui" apa pun di aplikasi kasir, SOP, Google Sheet, atau sistem studio. Kalau Furqan minta sesuatu di luar pengaturan dirimu diubah (SOP, harga, paket, aturan, data transaksi, kemampuan/fitur baru Nara), jawab jujur bahwa kamu tidak punya wewenang mengubah, panggil catat_permintaan dengan jenis yang sesuai, lalu bilang usulan itu sudah dicatat untuk diteruskan ke Claude yang akan menyiapkan pembaruannya bersama Furqan. Jangan pernah mengatakan sesuatu "sudah diubah" atau "sudah diperbarui".
+
+Cara berpikirmu:
+- Pikirkan dulu apa yang sebenarnya Furqan butuhkan, bukan hanya kata-katanya. Kalau ambigu dan penting, tanya SATU pertanyaan klarifikasi singkat.
+- Jujur dan berani berbeda pendapat dengan alasan yang jelas, sopan tapi tidak menjilat. Bedakan fakta dari data, dugaan, dan opinimu; katakan bila belum yakin.
+- Proaktif: setelah menjawab pertanyaan data, kalau kamu melihat sesuatu yang penting atau janggal (telat, tagihan lama, pengeluaran melonjak, booking padat), sebut satu hal itu dan satu saran tindakan. Jangan membanjiri.
+- Belajar: kalau Furqan mengoreksi caramu, menyatakan preferensi tetap, menyebut orang penting, atau mengambil keputusan penting, panggil simpan_catatan dengan jenis yang tepat (aturan / preferensi / orang / keputusan). Setelah itu patuhi di semua percakapan berikutnya.
+- Untuk "bagaimana bisnis", tren, perbandingan, atau saran → pakai analisis_bisnis. Untuk "laporan pagi" → ikuti pedoman laporan pagi (data_kasir hari ini & kemarin, data_absensi, analisis_bisnis bila perlu).
 
 Aturan menjawab:
 - Untuk pertanyaan tentang aturan, prosedur, harga paket, komisi, gaji, komplain, refund, KPI, atau tugas tiap peran di studio: WAJIB panggil baca_sop dulu dan jawab berdasarkan isinya; sebut nomor bagiannya (mis. "sesuai SOP 1.12"). Kalau SOP tidak mengatur, katakan begitu.
@@ -622,7 +682,7 @@ Aturan menjawab:
 // ---------- Claude API (streaming + tools) ----------
 async function askClaude(messages,onText,signal,onSearch){
   if(!S.apiKey) throw {code:'no_key'};
-  const model=S.quick?S.modelQuick:S.modelFull;
+  const model=(S.quick&&!forceFull)?S.modelQuick:S.modelFull;
   let convo=messages.map(m=>({role:m.role,content:m.content}));
   let fullText='';
   for(let round=0; round<6; round++){
@@ -683,7 +743,7 @@ async function maybeSummarize(){
 function fmtTime(t){ return new Date(t).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'}); }
 function bubble(role,text,t){ const d=document.createElement('div'); d.className='msg '+(role==='user'?'me':role==='sys'?'sys':'bot'); d.textContent=text; if(role!=='sys'){ const s=document.createElement('span'); s.className='time'; s.textContent=fmtTime(t||Date.now()); d.appendChild(s); } col.appendChild(d); scroll(); return d; }
 function scroll(){ main.scrollTop=main.scrollHeight; }
-function renderAll(){ col.querySelectorAll('.msg').forEach(e=>e.remove()); $('empty').hidden=history.length>0; history.forEach(m=>bubble(m.role,m.content,m.t)); $('botName').textContent=S.name; document.title=S.name; $('speakToggle').setAttribute('aria-pressed',String(!!S.speak)); setStatus(S.apiKey?'Siap ngobrol':'API key belum diisi (Pengaturan)',!!S.apiKey); }
+function renderAll(){ col.querySelectorAll('.msg').forEach(e=>e.remove()); $('empty').hidden=history.length>0; history.forEach(m=>m.auto?bubble('sys','Laporan pagi otomatis'):bubble(m.role,m.content,m.t)); $('botName').textContent=S.name; document.title=S.name; $('speakToggle').setAttribute('aria-pressed',String(!!S.speak)); setStatus(S.apiKey?'Siap ngobrol':'API key belum diisi (Pengaturan)',!!S.apiKey); }
 function setStatus(txt,on){ $('statusText').textContent=txt; $('statusDot').classList.toggle('off',!on); }
 function friendlyError(e){ const m={no_key:'API key Claude belum diisi. Buka Pengaturan (ikon roda gigi).',auth:'API key ditolak. Periksa lagi di Pengaturan.',rate:'Terlalu banyak permintaan atau saldo API habis. Coba sebentar lagi.',bad:'Permintaan ditolak Claude: '+(e&&e.message||'')}; if(e&&e.name==='AbortError') return ''; if(e&&e.code&&m[e.code]) return m[e.code]; if(!navigator.onLine) return 'Tidak ada internet.'; console.error(e); return 'Gagal menghubungi Claude: '+((e&&(e.message||e.code))||'coba lagi')+'. Buka Pengaturan → Tes sambungan untuk detailnya.'; }
 
@@ -692,7 +752,8 @@ function turns(){ const t=history.slice(-30).map(m=>({role:m.role,content:m.cont
 async function send(text,opts){
   opts=opts||{}; text=(text||'').trim(); if(!text||busy) return null;
   input.value=''; autosize(); $('empty').hidden=true;
-  history.push({role:'user',content:text,t:Date.now()}); bubble('user',text); touch();
+  if(opts.auto){ history.push({role:'user',content:text,t:Date.now(),auto:true}); bubble('sys',opts.label||'Laporan otomatis'); } else { history.push({role:'user',content:text,t:Date.now()}); bubble('user',text); }
+  touch();
   busy=true; sendBtn.disabled=true; hint.textContent=''; lastError=''; face.set('berpikir');
   const b=bubble('assistant','',Date.now()); b.classList.add('thinking'); b.textContent=S.name+' sedang mengetik…';
   abortCtl=new AbortController(); let moodSet=false; let body='';
@@ -770,13 +831,13 @@ const sheet=$('sheet');
 function openSheet(){
   $('fApiKey').value=S.apiKey; $('fModelQuick').value=S.modelQuick; $('fModelFull').value=S.modelFull; $('tQuick').setAttribute('aria-checked',String(!!S.quick));
   $('fName').value=S.name; $('fPersona').value=S.persona; $('fNotes').value=S.notes; $('fSummary').value=S.summary; renderRequests(); $('verLine').textContent='Nara v'+APP_VER;
-  loadVoices(); $('fRate').value=S.rate; $('rateVal').textContent=Number(S.rate).toFixed(2); $('fPause').value=S.pause||2.5; $('pauseVal').textContent=Number(S.pause||2.5).toFixed(2).replace(/\.?0+$/,''); $('tSpeak').setAttribute('aria-checked',String(!!S.speak)); $('tBarge').setAttribute('aria-checked',String(!!S.bargeIn));
+  loadVoices(); $('fRate').value=S.rate; $('rateVal').textContent=Number(S.rate).toFixed(2); $('fPause').value=S.pause||2.5; $('pauseVal').textContent=Number(S.pause||2.5).toFixed(2).replace(/\.?0+$/,''); $('tSpeak').setAttribute('aria-checked',String(!!S.speak)); $('tBarge').setAttribute('aria-checked',String(!!S.bargeIn)); $('tBrief').setAttribute('aria-checked',String(S.briefing!==false));
   $('fKasirUrl').value=S.kasirUrl; $('fAbsenUrl').value=S.absenUrl||''; $('fKasirKey').value=S.kasirKey; $('fSyncUrl').value=S.syncUrl; $('fSyncKey').value=S.syncKey;
   $('apiStatus').textContent=''; $('kasirStatus').textContent=''; renderSec(); sheet.hidden=false;
 }
 $('settingsBtn').onclick=openSheet; $('cancelBtn').onclick=()=>sheet.hidden=true;
 sheet.addEventListener('click',e=>{ if(e.target===sheet) sheet.hidden=true; });
-['tQuick','tSpeak','tBarge'].forEach(id=>{ const b=$(id); b.onclick=()=>b.setAttribute('aria-checked',String(b.getAttribute('aria-checked')!=='true')); });
+['tQuick','tSpeak','tBarge','tBrief'].forEach(id=>{ const b=$(id); b.onclick=()=>b.setAttribute('aria-checked',String(b.getAttribute('aria-checked')!=='true')); });
 $('fRate').oninput=()=>{ $('rateVal').textContent=Number($('fRate').value).toFixed(2); };
 $('fPause').oninput=()=>{ $('pauseVal').textContent=Number($('fPause').value).toFixed(2).replace(/\.?0+$/,''); };
 function cleanKey(v){ return String(v||'').replace(/[‐-―]/g,'-').replace(/[^\x21-\x7e]/g,''); }
@@ -798,7 +859,7 @@ $('fVoice').onchange=()=>{ const prev=S.voice; S.voice=$('fVoice').value; tts.sa
 $('saveBtn').onclick=async()=>{
   S={...S,apiKey:cleanKey($('fApiKey').value),modelQuick:$('fModelQuick').value.trim()||DEFAULTS.modelQuick,modelFull:$('fModelFull').value.trim()||DEFAULTS.modelFull,quick:$('tQuick').getAttribute('aria-checked')==='true',
     name:$('fName').value.trim()||DEFAULTS.name,persona:$('fPersona').value.trim()||DEFAULTS.persona,notes:$('fNotes').value.trim(),summary:$('fSummary').value.trim(),
-    voice:$('fVoice').value,rate:Number($('fRate').value)||1,pause:Number($('fPause').value)||2.5,speak:$('tSpeak').getAttribute('aria-checked')==='true',bargeIn:$('tBarge').getAttribute('aria-checked')==='true',
+    voice:$('fVoice').value,rate:Number($('fRate').value)||1,pause:Number($('fPause').value)||2.5,speak:$('tSpeak').getAttribute('aria-checked')==='true',bargeIn:$('tBarge').getAttribute('aria-checked')==='true',briefing:$('tBrief').getAttribute('aria-checked')==='true',
     kasirUrl:$('fKasirUrl').value.trim(),absenUrl:$('fAbsenUrl').value.trim(),kasirKey:$('fKasirKey').value.trim().toUpperCase(),syncUrl:$('fSyncUrl').value.trim(),syncKey:$('fSyncKey').value.trim()};
   kasirCache={t:0,data:null}; absenCache={}; if(vault.enabled()&&vault.K) await vault.store(); touch(); renderAll(); sheet.hidden=true;
   if(S.kasirUrl&&S.kasirKey){ try{ await kasirPull(); hint.textContent='Server kasir terhubung.'; }catch(e){ hint.textContent='Server kasir: '+e.message; } }
@@ -870,7 +931,7 @@ $('pad').addEventListener('click',async e=>{ const b=e.target.closest('button');
   const ok=await vault.unlockPin(pinBuf); if(ok){ lockEl.hidden=true; onUnlocked(); } else { pinBuf=''; drawPin(); lockErr.textContent='PIN salah.'; } });
 bioBtn.onclick=async()=>{ lockErr.textContent=''; try{ if(await bioUnlock()){ lockEl.hidden=true; onUnlocked(); } else lockErr.textContent='Tidak bisa membuka. Pakai PIN.'; }catch(e){ lockErr.textContent='Face ID dibatalkan atau tidak tersedia. Pakai PIN.'; } };
 function lockNow(){ if(!vault.enabled()||locked) return; locked=true; if(typeof stopTalk==='function') stopTalk(); vault.lock(); sheet.hidden=true; askPin('Nara terkunci',(vault.meta().cred?'Buka dengan Face ID atau masukkan PIN.':'Masukkan PIN.'),'unlock'); if(vault.meta().cred&&isApple){ setTimeout(()=>bioBtn.click(),300); } }
-function onUnlocked(){ locked=false; lastActive=Date.now(); renderAll(); if(S.syncUrl&&S.syncKey) pullSync(); }
+function onUnlocked(){ locked=false; lastActive=Date.now(); renderAll(); if(S.syncUrl&&S.syncKey) pullSync(); maybeBrief(); }
 ['pointerdown','keydown','touchstart'].forEach(ev=>document.addEventListener(ev,()=>{ lastActive=Date.now(); },{passive:true}));
 setInterval(()=>{ if(vault.enabled()&&!locked&&Date.now()-lastActive>5*60*1000&&!busy&&!(typeof vm!=='undefined'&&vm)) lockNow(); },15000);
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='hidden'&&vault.enabled()&&!locked) { if(Date.now()-lastActive>5*60*1000) lockNow(); } });
@@ -885,10 +946,28 @@ $('setPinBtn').onclick=async()=>{ sheet.hidden=true; const pin=await askPin(vaul
 $('bioEnrollBtn').onclick=async()=>{ try{ await bioEnroll(); await renderSec(); hint.textContent='Face ID / Touch ID aktif.'; }catch(e){ hint.textContent='Gagal mengaktifkan: '+(e.message||e); } };
 $('lockOffBtn').onclick=async()=>{ const b=$('lockOffBtn'); if(b.dataset.arm){ await vault.disable(); delete b.dataset.arm; b.textContent='Matikan kunci'; await renderSec(); } else { b.dataset.arm='1'; b.textContent='Yakin? Tekan lagi'; } };
 
+
+// ---------- laporan pagi otomatis ----------
+const BRIEF_PROMPT='[LAPORAN PAGI OTOMATIS — bukan ucapan Furqan] Siapkan laporan pagi singkat untuk Furqan. Panggil data_kasir untuk kemarin (semua cabang) dan hari ini (booking, belum lunas), data_absensi untuk siapa yang belum absen / terlambat, dan analisis_bisnis bila ada yang mencolok. Sampaikan hanya yang penting atau tidak biasa, maksimal 5 kalimat, nada hangat, lalu akhiri dengan SATU saran tindakan. Jika sebuah data gagal dimuat, sebutkan singkat. Jangan memakai tanda markdown.';
+let briefTimer=null;
+function maybeBrief(){
+  clearTimeout(briefTimer);
+  briefTimer=setTimeout(async()=>{
+    try{
+      const now=new Date(), today=ymd(now);
+      if(S.briefing===false||!S.apiKey||!S.kasirUrl||!S.kasirKey||S.lastBrief===today||now.getHours()<5||now.getHours()>=22) return;
+      if(typeof locked!=='undefined'&&locked) return; if(busy||(typeof vm!=='undefined'&&vm)) return;
+      S.lastBrief=today; touch();
+      forceFull=true; const r=await send(BRIEF_PROMPT,{auto:true,label:'Laporan pagi otomatis',speak:false,onText:t=>{ vYou.textContent=''; vHer.textContent=t; }}); forceFull=false;
+      if(!r){ S.lastBrief=''; touch(); }
+    }catch(e){ forceFull=false; }
+  },2500);
+}
+
 // ---------- boot ----------
 load(); renderAll();
-(async()=>{ if(vault.enabled()){ lockNow(); } else pullSync(); })();
-document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') pullSync(); });
+(async()=>{ if(vault.enabled()){ lockNow(); } else { await pullSync(); maybeBrief(); } })();
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'){ pullSync(); maybeBrief(); } });
 window.addEventListener('online',()=>setStatus(S.apiKey?'Siap ngobrol':'API key belum diisi',!!S.apiKey));
 window.addEventListener('offline',()=>setStatus('Tidak ada internet',false));
 console.log('Nara v'+APP_VER);
