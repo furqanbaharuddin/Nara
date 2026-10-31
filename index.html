@@ -253,6 +253,7 @@ textarea{flex:1;min-width:0;resize:none;border:1px solid var(--line);border-radi
     <h3>Data studio (server kasir)</h3>
     <div class="field"><label for="fKasirUrl">URL server kasir (…/exec)</label><input id="fKasirUrl" placeholder="https://script.google.com/macros/s/…/exec"></div>
     <div class="field"><label for="fKasirKey">Kunci API kasir</label><input id="fKasirKey" type="password" autocomplete="off"></div>
+    <div class="field"><label for="fAbsenUrl">URL server absensi &amp; fotografer (…/exec) — kosongkan untuk bawaan</label><input id="fAbsenUrl" placeholder="https://script.google.com/macros/s/…/exec"></div>
     <div class="status-line" id="kasirStatus"></div>
 
     <h3>Sinkron iPhone ⇄ Mac (Google Sheet)</h3>
@@ -271,7 +272,7 @@ textarea{flex:1;min-width:0;resize:none;border:1px solid var(--line);border-radi
 <script>
 (function(){
 'use strict';
-const APP_VER='3.4.0';
+const APP_VER='3.5.0';
 const $=id=>document.getElementById(id);
 const col=$('col'), main=$('main'), input=$('input'), sendBtn=$('sendBtn'), hint=$('hint');
 
@@ -279,7 +280,7 @@ const DEFAULTS={
   apiKey:'', modelQuick:'claude-haiku-5-5', modelFull:'claude-sonnet-5-5', quick:true,
   name:'Nara', persona:'Perempuan muda, ceria tapi tenang. Hangat, cerdas, dan jujur. Bicara seperti sahabat yang bisa diandalkan, bukan seperti robot. Panggil saya Furqan.',
   notes:'', summary:'', voice:'', rate:1, speak:true, pause:2.5, bargeIn:false,
-  kasirUrl:'', kasirKey:'', syncUrl:'', syncKey:'', requests:[], updatedAt:0
+  kasirUrl:'', kasirKey:'', absenUrl:'', syncUrl:'', syncKey:'', requests:[], updatedAt:0
 };
 let S={...DEFAULTS};
 let history=[];   // {role:'user'|'assistant', content, t}
@@ -458,6 +459,72 @@ function ringkasKasir(j,dari,sampai,cabang,detail){
   return res;
 }
 
+
+// ---------- absensi, jadwal shift & komisi fotografer (server absensi; HANYA BACA) ----------
+const ABSEN_URL_BAWAAN='https://script.google.com/macros/s/AKfycbw8o_CCJh10_qD28vad3O9kliFxEwY8K2HuTanFV2Uv_Fu0tlSgKJrRjZ15zMFTXyd3aw/exec';
+let absenCache={};
+const absenUrl=()=>(S.absenUrl||'').trim()||ABSEN_URL_BAWAAN;
+async function absenCall(body,ttl){
+  const k=JSON.stringify(body); const c=absenCache[k]; if(c&&Date.now()-c.t<(ttl||120000)) return c.v;
+  const r=await fetch(absenUrl(),{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:k,redirect:'follow'});
+  let j; try{ j=JSON.parse(await r.text()); }catch(e){ throw new Error('Server absensi tidak membalas dengan benar.'); }
+  if(!j.ok) throw new Error(j.pesan||j.error||'Server absensi menolak');
+  absenCache[k]={t:Date.now(),v:j}; return j;
+}
+function jamMnt(m){ m=Math.round(Number(m)||0); return m>=60?Math.floor(m/60)+' jam'+(m%60?' '+(m%60)+' menit':''):m+' menit'; }
+async function absensiRingkas(inp){
+  if(!S.kasirKey) throw new Error('Kunci API kasir belum diatur di Pengaturan.');
+  const staf=(await absenCall({fn:'staf'},600000)).staf||[];
+  const want=String(inp.nama||'').trim().toLowerCase();
+  const pilih=staf.filter(x=>!want||String(x.nama||'').toLowerCase().includes(want));
+  if(!pilih.length) return {error:'Tidak ada karyawan bernama "'+inp.nama+'". Daftar: '+staf.map(x=>x.nama).join(', ')};
+  const hasil=await Promise.all(pilih.map(async x=>{ try{ return {x,D:await absenCall({fn:'karyawanData',key:S.kasirKey,id:x.id})}; }catch(e){ return {x,err:e.message}; } }));
+  const hariIni=(hasil.find(h=>h.D&&h.D.hariIni)||{D:{}}).D.hariIni||ymd(new Date());
+  const bulan=/^\d{4}-\d{2}$/.test(inp.bulan||'')?inp.bulan:hariIni.slice(0,7);
+  const out=[]; const errs=[];
+  hasil.forEach(({x,D,err})=>{
+    if(err){ errs.push(x.nama+': '+err); return; }
+    const batas=Number(D.batasTelat)||120, bonusNom=D.bonusDisiplin!=null?Number(D.bonusDisiplin):500000;
+    const jad=D.jadwal||[], abs=D.absen||[];
+    const masukHari=t=>abs.filter(a=>a.t===t&&a.jenis==='Masuk').sort((a,b)=>String(a.jam).localeCompare(String(b.jam)))[0];
+    const pulangHari=t=>abs.filter(a=>a.t===t&&a.jenis==='Pulang').sort((a,b)=>String(b.jam).localeCompare(String(a.jam)))[0];
+    let hadir=0,telat=0,menit=0,alpa=0; const detail=[];
+    jad.filter(j=>!j.libur&&j.t.slice(0,7)===bulan&&j.t<=hariIni).forEach(j=>{
+      const m=masukHari(j.t);
+      if(m){ hadir++; if(Number(m.telat)>0){ telat++; menit+=Number(m.telat); detail.push(j.t+' telat '+m.telat+' menit'); } }
+      else if(j.t<hariIni){ alpa++; detail.push(j.t+' tidak absen'); }
+    });
+    const jh=jad.find(j=>j.t===hariIni), mh=masukHari(hariIni), ph=pulangHari(hariIni);
+    let hariIniTeks='tidak ada jadwal (bebas)';
+    if(jh) hariIniTeks=jh.libur?('libur ('+(jh.alasan||'')+')'):((CAB[jh.cab]||jh.cab)+' '+jh.masuk+'–'+jh.pulang+' — '+(mh?('sudah masuk '+mh.jam+(Number(mh.telat)>0?', telat '+mh.telat+' menit':', tepat waktu'))+(ph?', pulang '+ph.jam:''):(jh.masuk>new Date().toTimeString().slice(0,5)&&hariIni===ymd(new Date())?'belum waktunya masuk':'BELUM absen masuk')));
+    const bonus=telat>0?'gugur (telat '+telat+'×)':alpa>0?'gugur ('+alpa+' hari tidak absen)':(bulan<hariIni.slice(0,7)?'dapat bonus '+rp(bonusNom):'masih berpeluang ('+rp(bonusNom)+')');
+    out.push({nama:x.nama,peran:x.peran,hari_ini:hariIniTeks,bulan,hadir,telat_kali:telat,telat_total:jamMnt(menit),batas_telat:jamMnt(batas),status_telat:menit>batas?'MELEBIHI BATAS (kena SP)':menit>=batas*.75?'mendekati batas':'aman',tidak_absen_hari:alpa,bonus_disiplin:bonus,rincian:detail.slice(-8)});
+  });
+  const belum=out.filter(o=>/BELUM absen/.test(o.hari_ini)).map(o=>o.nama);
+  return {tanggal_hari_ini:hariIni,bulan,belum_absen_hari_ini:belum,karyawan:out,gagal_dimuat:errs.length?errs:undefined};
+}
+async function jadwalShift(inp){
+  const today=ymd(new Date()); const dari=inp.dari||today, sampai=inp.sampai||dari;
+  const d=await absenCall({fn:'jadwalRentang',dari,sampai});
+  const nm={}; (d.karyawan||[]).forEach(k=>nm[k.id]=k);
+  const want=String(inp.nama||'').trim().toLowerCase();
+  const rows=(d.jadwal||[]).filter(j=>j.t>=dari&&j.t<=sampai&&(!want||String((nm[j.id]||{}).nama||'').toLowerCase().includes(want)));
+  const per={}; rows.forEach(j=>{ const k=nm[j.id]||{nama:j.id,peran:''}; const hari=per[j.t]=per[j.t]||{tanggal:j.t,bertugas:[],libur:[]};
+    if(j.libur) hari.libur.push(k.nama+(j.alasan?' ('+j.alasan+')':'')); else hari.bertugas.push((CAB[j.cab]||j.cab)+': '+k.nama+' ('+k.peran+') '+j.masuk+'–'+j.pulang+(j.label&&/Khusus|tukar/i.test(j.label)?' ★'+j.label:'')); });
+  const hari=Object.values(per).sort((a,b)=>a.tanggal<b.tanggal?-1:1).slice(0,35);
+  return {dari,sampai,hari,catatan:'★ = jadwal khusus (tukar shift/masuk tambahan). Hari tanpa daftar = tidak ada data jadwal.'};
+}
+async function komisiFotografer(inp){
+  if(!S.kasirKey) throw new Error('Kunci API kasir belum diatur di Pengaturan.');
+  const d=await absenCall({fn:'komisiRingkas',key:S.kasirKey});
+  const want=String(inp.nama||'').trim().toLowerCase();
+  const rows=(d.data||[]).filter(x=>!want||String(x.nama||'').toLowerCase().includes(want));
+  return {catatan:'Komisi yang BELUM DIBAYAR (semua periode, dihitung server dari transaksi yang sudah tersinkron dan ditandai sudah difoto).',
+    fotografer:rows.map(x=>({nama:x.nama,belum_dibayar:rp(x.total),jumlah_customer:x.n,terakhir_dibayar:x.terakhir?(x.terakhir.tanggal+' '+rp(x.terakhir.jumlah)):'belum pernah',
+      rincian:inp.detail?(x.belum||[]).slice(0,25).map(b=>b.tgl+' '+(CAB[b.cab]||b.cab)+' '+b.nama+' · '+b.paket+' · '+rp(b.komisi)):undefined})),
+    total_semua:rp(rows.reduce((a,x)=>a+(Number(x.total)||0),0))};
+}
+
 // ---------- SOP studio ----------
 let SOP=null;
 fetch('sop.json?v='+APP_VER).then(r=>r.json()).then(j=>{ SOP=j; }).catch(e=>console.warn('SOP gagal dimuat',e));
@@ -506,6 +573,15 @@ const TOOLS=[
   { name:'simpan_catatan', description:'Simpan satu catatan singkat ke ingatan jangka panjang asisten (dibaca lagi di setiap percakapan). Panggil hanya saat Furqan minta mengingat/mencatat sesuatu.',
     input_schema:{type:'object',properties:{catatan:{type:'string',description:'Satu kalimat singkat'}},required:['catatan']},
     run(inp){ const c=String(inp.catatan||'').trim(); if(!c) return 'Error: kosong'; S.notes=(S.notes?S.notes+'\n':'')+'- '+c; touch(); return 'ok, tersimpan'; } },
+  { name:'data_absensi', description:'Baca data ABSENSI karyawan PURE MOTRET (fotografer, kasir, Riang, editor): siapa yang belum absen hari ini, jadwal & status hari ini, jumlah hadir, terlambat (kali dan total menit) dibanding batas bulanan, hari tidak absen, dan status bonus disiplin. Hanya membaca. WAJIB dipakai untuk pertanyaan soal absen, telat, bolos, atau bonus disiplin.',
+    input_schema:{type:'object',properties:{nama:{type:'string',description:'opsional: nama karyawan; kosong = semua'},bulan:{type:'string',description:'opsional: YYYY-MM; default bulan ini'}}},
+    async run(inp){ return await absensiRingkas(inp||{}); } },
+  { name:'jadwal_shift', description:'Baca JADWAL SHIFT karyawan: siapa bertugas/libur di S.Parman dan Pue Bongo pada tanggal atau rentang tertentu, termasuk tukar shift. Hanya membaca. Tanggal YYYY-MM-DD; default hari ini.',
+    input_schema:{type:'object',properties:{dari:{type:'string'},sampai:{type:'string'},nama:{type:'string',description:'opsional: filter satu karyawan'}}},
+    async run(inp){ return await jadwalShift(inp||{}); } },
+  { name:'komisi_fotografer', description:'Baca KOMISI fotografer yang belum dibayar (data yang sama dengan aplikasi fotografer): per fotografer jumlah, banyak customer, kapan terakhir dibayar. detail=true untuk rincian per customer. Hanya membaca; Nara tidak bisa menandai komisi dibayar.',
+    input_schema:{type:'object',properties:{nama:{type:'string',description:'opsional: nama fotografer'},detail:{type:'boolean'}}},
+    async run(inp){ return await komisiFotografer(inp||{}); } },
   { name:'data_kasir', description:'Ambil data real dari sistem kasir PURE MOTRET: ringkasan pemasukan per cabang (tunai/transfer/QRIS), jumlah transaksi, pengeluaran, daftar belum lunas, dan booking 7 hari ke depan. Gunakan untuk SEMUA pertanyaan angka bisnis; jangan menebak. Tanggal format YYYY-MM-DD.',
     input_schema:{type:'object',properties:{dari:{type:'string',description:'tanggal awal YYYY-MM-DD (default hari ini)'},sampai:{type:'string',description:'tanggal akhir YYYY-MM-DD (default = dari)'},cabang:{type:'string',enum:['ALL','SP','PB'],description:'SP = S.Parman, PB = Pue Bongo'},detail:{type:'boolean',description:'true untuk daftar transaksi satu per satu'}}},
     async run(inp){ const today=ymd(new Date()); const dari=inp.dari||today, sampai=inp.sampai||dari; const j=await kasirPull(); return ringkasKasir(j,dari,sampai,inp.cabang||'ALL',!!inp.detail); } }
@@ -535,6 +611,7 @@ Aturan menjawab:
 - Jawaban akan DIBACAKAN dengan suara: tulis seperti orang bicara. Singkat (1-4 kalimat kecuali diminta panjang), tanpa markdown, tanpa bullet, tanpa emoji, angka rupiah ditulis "Rp 1,2 juta" atau "850 ribu" supaya enak didengar.
 - Selalu Bahasa Indonesia santai dan natural, seperti teman dekat; bukan seperti robot atau customer service.
 - Untuk pertanyaan angka bisnis (pemasukan, omzet, kas, belum lunas, booking) WAJIB panggil tool data_kasir dulu, lalu jawab dari datanya. Kalau tool gagal, bilang apa adanya.
+- Untuk absensi, telat, bolos, bonus disiplin → WAJIB data_absensi. Untuk jadwal shift/siapa bertugas/libur/tukar shift → WAJIB jadwal_shift. Untuk komisi fotografer → WAJIB komisi_fotografer (data yang sama dengan aplikasi fotografer). Ketiganya hanya membaca; jangan menebak. Sebutkan angka secukupnya, jangan membacakan semua baris.
 - Kamu punya akses internet lewat tool web_search. Pakai untuk hal yang butuh info terkini atau yang tidak kamu yakini: berita, cuaca, harga, jadwal, alamat, tren, fakta terbaru. Untuk obrolan biasa tidak perlu mencari. Setelah mencari, jawab dengan ringkas seperti bicara; jangan membacakan daftar link atau sumber, cukup sebut nama sumbernya kalau penting.
 - Kalau Furqan minta mengingat/mencatat sesuatu, panggil simpan_catatan lalu konfirmasi singkat.
 - Bedakan: "ubah cara bicaramu/namamu/kecepatanmu/jedamu" → atur_diri (langsung berlaku). "Tambahkan kemampuan baru" → catat_permintaan jenis fitur-nara (hanya dicatat). "Update dirimu" → perbarui_aplikasi.
@@ -694,7 +771,7 @@ function openSheet(){
   $('fApiKey').value=S.apiKey; $('fModelQuick').value=S.modelQuick; $('fModelFull').value=S.modelFull; $('tQuick').setAttribute('aria-checked',String(!!S.quick));
   $('fName').value=S.name; $('fPersona').value=S.persona; $('fNotes').value=S.notes; $('fSummary').value=S.summary; renderRequests(); $('verLine').textContent='Nara v'+APP_VER;
   loadVoices(); $('fRate').value=S.rate; $('rateVal').textContent=Number(S.rate).toFixed(2); $('fPause').value=S.pause||2.5; $('pauseVal').textContent=Number(S.pause||2.5).toFixed(2).replace(/\.?0+$/,''); $('tSpeak').setAttribute('aria-checked',String(!!S.speak)); $('tBarge').setAttribute('aria-checked',String(!!S.bargeIn));
-  $('fKasirUrl').value=S.kasirUrl; $('fKasirKey').value=S.kasirKey; $('fSyncUrl').value=S.syncUrl; $('fSyncKey').value=S.syncKey;
+  $('fKasirUrl').value=S.kasirUrl; $('fAbsenUrl').value=S.absenUrl||''; $('fKasirKey').value=S.kasirKey; $('fSyncUrl').value=S.syncUrl; $('fSyncKey').value=S.syncKey;
   $('apiStatus').textContent=''; $('kasirStatus').textContent=''; renderSec(); sheet.hidden=false;
 }
 $('settingsBtn').onclick=openSheet; $('cancelBtn').onclick=()=>sheet.hidden=true;
@@ -722,8 +799,8 @@ $('saveBtn').onclick=async()=>{
   S={...S,apiKey:cleanKey($('fApiKey').value),modelQuick:$('fModelQuick').value.trim()||DEFAULTS.modelQuick,modelFull:$('fModelFull').value.trim()||DEFAULTS.modelFull,quick:$('tQuick').getAttribute('aria-checked')==='true',
     name:$('fName').value.trim()||DEFAULTS.name,persona:$('fPersona').value.trim()||DEFAULTS.persona,notes:$('fNotes').value.trim(),summary:$('fSummary').value.trim(),
     voice:$('fVoice').value,rate:Number($('fRate').value)||1,pause:Number($('fPause').value)||2.5,speak:$('tSpeak').getAttribute('aria-checked')==='true',bargeIn:$('tBarge').getAttribute('aria-checked')==='true',
-    kasirUrl:$('fKasirUrl').value.trim(),kasirKey:$('fKasirKey').value.trim().toUpperCase(),syncUrl:$('fSyncUrl').value.trim(),syncKey:$('fSyncKey').value.trim()};
-  kasirCache={t:0,data:null}; if(vault.enabled()&&vault.K) await vault.store(); touch(); renderAll(); sheet.hidden=true;
+    kasirUrl:$('fKasirUrl').value.trim(),absenUrl:$('fAbsenUrl').value.trim(),kasirKey:$('fKasirKey').value.trim().toUpperCase(),syncUrl:$('fSyncUrl').value.trim(),syncKey:$('fSyncKey').value.trim()};
+  kasirCache={t:0,data:null}; absenCache={}; if(vault.enabled()&&vault.K) await vault.store(); touch(); renderAll(); sheet.hidden=true;
   if(S.kasirUrl&&S.kasirKey){ try{ await kasirPull(); hint.textContent='Server kasir terhubung.'; }catch(e){ hint.textContent='Server kasir: '+e.message; } }
   if(S.syncUrl&&S.syncKey) pullSync();
 };
